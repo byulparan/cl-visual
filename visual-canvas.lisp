@@ -309,7 +309,8 @@
 						    :retina ,retina
 						    :gl-canvas ,gl-canvas))
 				   (ns:with-event-loop nil
-				     (ns:objc (window *visual-canvas*) "setTitle:" (ns:autorelease (ns:make-ns-string ,window-name)))
+				     (ns:objc (window *visual-canvas*) "setTitle:"
+					      :pointer (ns:autorelease (ns:make-ns-string ,window-name)))
 				     ;; (when (and ,size (not (eg::full-screen-p (window *shadertoy-canvas*))))
 				     ;;   (setf (eg:view-size (window *shadertoy-canvas*)) (eg:point ,(second size) ,(third size))))
 				     ))

@@ -12,6 +12,6 @@
 	       (:file "renderer")
 	       (:file "fps-info")
 	       (:file "visual-canvas")
-	       ;; (:file "textures")
+	       (:file "textures")
 	       ;; (:file "cocoa-textures")
 	       (:file "lib")))
