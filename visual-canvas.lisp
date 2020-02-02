@@ -311,9 +311,17 @@
 				   (ns:with-event-loop nil
 				     (ns:objc (window *visual-canvas*) "setTitle:"
 					      :pointer (ns:autorelease (ns:make-ns-string ,window-name)))
-				     ;; (when (and ,size (not (eg::full-screen-p (window *shadertoy-canvas*))))
-				     ;;   (setf (eg:view-size (window *shadertoy-canvas*)) (eg:point ,(second size) ,(third size))))
-				     ))
+				     (when (and ,size (not (ns:objc (cl-visual::window cl-visual::*visual-canvas*) "isFullscreen" :bool)))
+				       (let* ((window (window *visual-canvas*))
+					      (frame (ns:objc-stret ns:rect window "frame")))
+					 (ns:objc (window *visual-canvas*) "setFrame:display:"
+						  (:struct ns:rect) (ns:make-rect (ns:rect-x frame)
+										  (+ (ns:rect-y frame)
+										     (- (ns:rect-height frame)
+											(+ 22 ,(third size))))
+										  ,(second size)
+										  (+ 22 ,(third size)))
+						  :int 0)))))
        (ns:with-event-loop (:waitp t)
 	 (let* ((renderer (make-instance 'visual-renderer :reinit-time ,reinit-time
 	 				 :core-profile t))
