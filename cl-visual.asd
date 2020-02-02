@@ -3,16 +3,15 @@
   :depends-on (:gfx-glsl
 	       :cl-nextstep
 	       :ftgl
+	       :cl-syphon
 	       :sc-user
-	       #+sbcl #:sb-concurrency
-	       #+ccl #:safe-queue
-	       #:cl-glu
-	       #:cl-glut)
+	       #+sbcl :sb-concurrency
+	       #+ccl #:safe-queue)
   :components ((:file "package")
+	       (:file "gl-canvas")
 	       (:file "renderer")
-	       ;; (:file "fps-info")
-	       ;; (:file "canvas-cocoa")
+	       (:file "fps-info")
+	       (:file "visual-canvas")
 	       ;; (:file "textures")
 	       ;; (:file "cocoa-textures")
-	       ;; (:file "lib")
-	       ))
+	       (:file "lib")))

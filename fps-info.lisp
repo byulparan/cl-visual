@@ -1,0 +1,45 @@
+(in-package :cl-visual)
+
+(defstruct (fps-info
+	    (:constructor %make-fps-info)
+	    (:conc-name fps-))
+  (accum-dt 0.0 :type single-float)
+  (fps 0.0 :type single-float)
+  (frames 0 :type fixnum)
+  (font nil))
+
+(defun make-fps-info ()
+  (let* ((fps-info (%make-fps-info))
+	 (font (ftgl:create-texture-font "/System/Library/Fonts/Monaco.dfont")))
+    (ftgl:set-font-face-size font 24 72)
+    (setf (fps-font fps-info) font)
+    fps-info))
+
+(defun calc-fps-info (fps dt)
+  (incf (fps-frames fps))
+  (incf (fps-accum-dt fps) dt)
+  (when (> (fps-accum-dt fps) 1.0)
+    (setf (fps-fps fps) (/ (fps-frames fps) (fps-accum-dt fps))
+	  (fps-frames fps) 0
+	  (fps-accum-dt fps) 0.0)))
+
+(defun draw-fps-info (fps-info view-w view-h w h)
+  (gl:matrix-mode :projection)
+  (gl:load-identity)
+  (gl:ortho 0 view-w 0 view-h -100 100)
+  (gl:matrix-mode :modelview)
+  (gl:load-identity)
+  (gl:translate 30 30 0)
+  (gl:color .0 .0 .0 1.0)
+  (gl:begin :quads)
+  (gl:vertex 0.0 -6.0)
+  (gl:vertex (+ 295 (if (> h 1000) 14 0) (if (> w 1000) -8.0 0.0)) -6.0)
+  (gl:vertex (+ 295 (if (> h 1000) 14 0) (if (> w 1000) -8.0 0.0)) 25.0)
+  (gl:vertex 0.0 25.0)
+  (gl:end)
+  (gl:color 1. 1. 1.)
+  (ftgl:render-font (fps-font fps-info) (format nil "~:[  ~; ~]~dx~d : ~3,1fFPS"
+						(> w 1000) w h (fps-fps fps-info)) :all))
+
+(defun destroy-fps-info (fps-info)
+  (ftgl:destroy-font (fps-font fps-info)))

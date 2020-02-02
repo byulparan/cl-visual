@@ -1,11 +1,15 @@
 (defpackage :cl-visual
   (:use :cl :alexandria)
-  (:import-from #+sbcl :sb-concurrency
-		#+ccl  :safe-queue
-		#:make-mailbox
-		#:mailbox-send-message
-		#:mailbox-receive-message
-		#:mailbox-empty-p)
+  #+ccl (:import-from :safe-queue
+		      #:make-mailbox
+		      #:mailbox-send-message
+		      #:mailbox-receive-message
+		      #:mailbox-empty-p)
+  #+sbcl (:import-from :sb-concurrency
+		       #:make-mailbox
+		       #:send-message
+		       #:receive-message
+		       #:mailbox-empty-p)
   (:export #:*icontrol-index*
 	   #:ichannel0
 	   #:ichannel1
