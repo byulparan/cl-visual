@@ -334,66 +334,69 @@
       (gl:bind-framebuffer :framebuffer
 			   (gfx::framebuffer (if (gl-canvas view) (fbo view) (gfx::output-fbo (fbo view)))))))
 
-;; ;;; iosurface
-;; (defmethod process-texture-src (view (src (eql :io-surface)) texture-src)
-;;   (let* ((core-profile (if (not (find :core-profile texture-src)) t
-;; 			 (getf texture-src :core-profile)))
-;; 	 (fixed-size (getf texture-src :size))
-;; 	 (width (if fixed-size (first (getf texture-src :size)) (width view)))
-;; 	 (height (if fixed-size (second (getf texture-src :size)) (height view)))
-;; 	 (use-mouse (getf texture-src :use-mouse)))
-;;     (list :src src :filter :linear :wrap :clamp-to-edge :flip-p nil 
-;; 	  :target :texture-rectangle
-;; 	  :draw-fbo nil
-;; 	  :renderer (make-instance 'renderer :width width :height height :core-profile core-profile)
-;; 	  :gl-canvas (make-instance (second texture-src) :width width :height height
-;; 				    :camera (when use-mouse (camera view)))
-;; 	  :io-surface nil
-;; 	  :fixed-size fixed-size)))
+;;; iosurface
+(defmethod process-texture-src (view (src (eql :io-surface)) texture-src)
+  (let* ((core-profile (if (not (find :core-profile texture-src)) t
+			 (getf texture-src :core-profile)))
+	 (fixed-size (getf texture-src :size))
+	 (width (if fixed-size (first (getf texture-src :size)) (width view)))
+	 (height (if fixed-size (second (getf texture-src :size)) (height view)))
+	 (use-mouse (getf texture-src :use-mouse)))
+    (list :src src :filter :linear :wrap :clamp-to-edge :flip-p nil 
+	  :target :texture-rectangle
+	  :draw-fbo nil
+	  :renderer (make-instance 'renderer :width width :height height :core-profile core-profile)
+	  :gl-canvas (make-instance (second texture-src) :width width :height height
+				    :camera (when use-mouse (camera view)))
+	  :io-surface nil
+	  :fixed-size fixed-size)))
 
-;; (defmethod init-texture-src (view tex-id (src (eql :io-surface)) texture-src)
-;;   (let* ((width (width view))
-;; 	 (height (height view))
-;; 	 (renderer (getf texture-src :renderer))
-;; 	 (canvas (getf texture-src :gl-canvas)))
-;;     (resize-framebuffer renderer width height)
-;;     (with-cgl-context ((cgl-context renderer))
-;;       (gfx:with-fbo ((fbo renderer))
-;; 	(gfx:init canvas)))
-;;     (setf (getf texture-src :io-surface) (io-surface:lookup (io-surface:id (iosurface renderer))))
-;;     (gl:bind-texture :texture-rectangle tex-id)
-;;     (io-surface:cgl-teximage-io-surface-2d (getf texture-src :io-surface) (cgl-context view) width height)
-;;     (gl:bind-texture :texture-rectangle 0)))
+(defmethod init-texture-src (view tex-id (src (eql :io-surface)) texture-src)
+  (let* ((width (width view))
+	 (height (height view))
+	 (renderer (getf texture-src :renderer))
+	 (canvas (getf texture-src :gl-canvas)))
+    (resize-framebuffer renderer width height)
+    (with-cgl-context ((cgl-context renderer))
+      (gfx:with-fbo ((fbo renderer))
+	(gfx:init canvas)))
+    (setf (getf texture-src :io-surface) (io-surface:lookup (io-surface:id (iosurface renderer))))
+    (gl:bind-texture :texture-rectangle tex-id)
+    (cgl:tex-image-io-surface-2d (cgl-context view) :texture-rectangle :rgba width height
+				 :bgra :unsigned-int-8-8-8-8-rev (getf texture-src :io-surface) 0)
+    (gl:bind-texture :texture-rectangle 0)))
 
 
-;; (defmethod update-texture-src (view (src (eql :io-surface)) texture-src)
-;;   (let* ((width (width view))
-;;   	 (height (height view))
-;;   	 (renderer (getf texture-src :renderer))
-;;   	 (canvas (getf texture-src :gl-canvas)))
-;;     (when (and (not (getf texture-src :fixed-size))
-;; 	       (or (/= width (width renderer))
-;; 		   (/= height (height renderer))))
-;;       (setf (width renderer) width (height renderer) height)
-;;       (setf (gfx:width canvas) width (gfx:height canvas) height)
-;;       (resize-framebuffer renderer width height)
-;;       (objective-c:release (getf texture-src :io-surface))
-;;       (let* ((io-surface (io-surface:lookup (io-surface:id (iosurface renderer)))))
-;;       	  (setf (getf texture-src :io-surface) io-surface)
-;;   	  (io-surface:cgl-teximage-io-surface-2d io-surface (cgl-context view) width height)))
-;;     (with-cgl-context ((cgl-context renderer))
-;;       (gfx:with-fbo ((fbo renderer))
-;; 	(gfx:draw canvas))
-;;       (gl:flush))))
+(defmethod update-texture-src (view (src (eql :io-surface)) texture-src)
+  (let* ((width (width view))
+  	 (height (height view))
+  	 (renderer (getf texture-src :renderer))
+  	 (canvas (getf texture-src :gl-canvas)))
+    (when (and (not (getf texture-src :fixed-size))
+	       (or (/= width (width renderer))
+		   (/= height (height renderer))))
+      (setf (width renderer) width (height renderer) height)
+      (setf (gfx:width canvas) width (gfx:height canvas) height)
+      (ns:release (getf texture-src :io-surface))
+      (let* ((io-surface (io-surface:lookup (io-surface:id (iosurface renderer)))))
+	(setf (getf texture-src :io-surface) io-surface)
+	(cgl:tex-image-io-surface-2d (cgl-context view) :texture-rectangle
+				     :rgba width height :bgra
+				     :unsigned-int-8-8-8-8-rev (getf texture-src :io-surface) 0))
+      (resize-framebuffer renderer width height))
+    (with-cgl-context ((cgl-context renderer))
+      (gfx:with-fbo ((fbo renderer))
+	(gfx:draw canvas))
+      (gl:flush))))
 
-;; (defmethod destroy-texture-src (view (src (eql :io-surface)) texture-src new-texture-srcs)
-;;   (declare (ignore view new-texture-srcs))
-;;   (let* ((renderer (getf texture-src :renderer))
-;;   	 (canvas (getf texture-src :gl-canvas)))
-;;     (with-cgl-context ((cgl-context renderer))
-;;       (gfx:with-fbo ((fbo renderer))
-;; 	(gfx:shutdown canvas))
-;;       (gfx:cleanup-context canvas))
-;;     (destroy renderer)
-;;     (objective-c:release (getf texture-src :io-surface))))
+(defmethod destroy-texture-src (view (src (eql :io-surface)) texture-src new-texture-srcs)
+  (declare (ignore view new-texture-srcs))
+  (let* ((renderer (getf texture-src :renderer))
+  	 (canvas (getf texture-src :gl-canvas)))
+    (with-cgl-context ((cgl-context renderer))
+      (gfx:with-fbo ((fbo renderer))
+	(gfx:shutdown canvas))
+      (gfx:cleanup-context canvas))
+    (destroy renderer)
+    (ns:release (getf texture-src :io-surface))))
 
