@@ -62,30 +62,30 @@
       (sc:free synth)
       (setf (getf (audio-data view) :scope-synth) nil))))
 
-;; ;;;
-;; ;;; screen frame
-;; ;;; 
-;; (defmethod process-texture-src (view (src (eql :screen-frame)) texture-src)
-;;   (let* ((rect (getf (cdr texture-src) :rect)))
-;;     (unless rect
-;;       (setf rect (list 0 0 200 200)))
-;;     (destructuring-bind (x y w h)
-;; 	rect
-;;       (list :src src
-;;        :filter (if-let ((filter (getf (cdr texture-src) :filter))) filter :linear)
-;;        :wrap (if-let ((wrap (getf (cdr texture-src) :wrap))) wrap :clamp-to-edge)
-;;        :rect (cg:make-cg-rect x y w h)
-;;        :target :texture-2d))))
+;;;
+;;; screen frame
+;;; 
+(defmethod process-texture-src (view (src (eql :screen-frame)) texture-src)
+  (let* ((rect (getf (cdr texture-src) :rect)))
+    (unless rect
+      (setf rect (list 0 0 200 200)))
+    (destructuring-bind (x y w h)
+	rect
+      (list :src src
+       :filter (if-let ((filter (getf (cdr texture-src) :filter))) filter :linear)
+       :wrap (if-let ((wrap (getf (cdr texture-src) :wrap))) wrap :clamp-to-edge)
+       :rect (ns:make-rect x y w h)
+       :target :texture-2d))))
 
 
-;; (defmethod update-texture-src (view (src (eql :screen-frame)) texture-src)
-;;   (declare (ignore view))
-;;   (let* ((rect (getf texture-src :rect))
-;;   	 (image (cg:make-cg-image-from-screen rect)))
-;;     (unwind-protect (gl:tex-image-2d :texture-2d 0 :rgba8 
-;; 				     (cg:cg-image-width image) (cg:cg-image-height image) 0
-;; 				     :rgba :unsigned-byte (cg:cg-image-bitmap-data image))
-;;       (cg:release-cg-image image))))
+(defmethod update-texture-src (view (src (eql :screen-frame)) texture-src)
+  (declare (ignore view))
+  (let* ((rect (getf texture-src :rect))
+  	 (image (cg:image-from-screen rect)))
+    (unwind-protect (gl:tex-image-2d :texture-2d 0 :rgba8 
+				     (cg:image-width image) (cg:image-height image) 0
+				     :rgba :unsigned-byte (cg:image-bitmap-data image))
+      (cg:image-release image))))
 
 
 
