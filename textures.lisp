@@ -151,39 +151,38 @@
 ;;   (av:with-av-player (src frame width height)
 ;;     (gl:tex-image-2d :texture-2d 0 :rgba8 width height 0 :rgba :unsigned-byte frame)))
 
-;; ;;; 
-;; ;;; av-capture
-;; ;;; 
-;; (defmethod process-texture-src (view (src (eql :live-frame)) texture-src)
-;;   (declare (ignore view))
-;;   (let* ((index (second texture-src)))
-;;     (unless index (setf index 0))
-;;     (let* ((capture (av:make-av-capture index)))
-;;       (av:start-capture capture)
-;;       (list :src capture
-;; 	    :device-index index
-;; 	    :release-p t
-;; 	    :filter :linear :wrap :clamp-to-edge :flip-p nil
-;; 	    :target :texture-2d))))
+;;; 
+;;; av-capture
+;;; 
+(defmethod process-texture-src (view (src (eql :live-frame)) texture-src)
+  (declare (ignore view))
+  (let* ((index (second texture-src)))
+    (unless index (setf index 0))
+    (let* ((capture (av:make-camera-capture index)))
+      (av:start-capture capture)
+      (list :src capture
+	    :device-index index
+	    :release-p t
+	    :filter :linear :wrap :clamp-to-edge :flip-p nil
+	    :target :texture-2d))))
 
-;; (defmethod process-texture-src (view (src av:av-capture) texture-src)
-;;   (declare (ignore view texture-src))
-;;   (list :src src
-;; 	:release-p nil
-;; 	:filter :linear :wrap :clamp-to-edge :flip-p nil
-;; 	:target :texture-2d))
+(defmethod process-texture-src (view (src av:capture) texture-src)
+  (declare (ignore view texture-src))
+  (list :src src
+	:release-p nil
+	:filter :linear :wrap :clamp-to-edge :flip-p nil
+	:target :texture-2d))
 
-;; (defmethod update-texture-src (view (src av:av-capture) texture-src)
-;;   (declare (ignore view texture-src))
-;;   (av:with-av-capture (src frame width height)
-;;     (unless (cffi:null-pointer-p frame)
-;;       (gl:tex-image-2d :texture-2d 0 :rgba8 width height 0 :rgba :unsigned-byte frame))))
+(defmethod update-texture-src (view (src av:capture) texture-src)
+  (declare (ignore view texture-src))
+  (av:with-media-data (src width height data)
+    (gl:tex-image-2d :texture-2d 0 :rgba8 width height 0 :rgba :unsigned-byte data)))
 
-;; (defmethod destroy-texture-src (view (src av:av-capture) texture-src new-texture-srcs)
-;;   (declare (ignore view new-texture-srcs))
-;;   (when (getf texture-src :release-p)
-;;     (av:stop-capture src)
-;;     (objective-c:release (av::av-capture-ptr src))))
+(defmethod destroy-texture-src (view (src av:capture) texture-src new-texture-srcs)
+  (declare (ignore view new-texture-srcs))
+  (when (getf texture-src :release-p)
+    (av:stop-capture src)
+    (av:release-capture src)))
 
 ;; ;;; 
 ;; ;;; syphon
