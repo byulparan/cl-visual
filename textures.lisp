@@ -278,61 +278,61 @@
   (declare (ignore view texture-src new-texture-srcs)))
 
 
-;; ;; fbo
-;; (defmethod process-texture-src (view (src (eql :fbo)) texture-src)
-;;   (let* ((width (width view))
-;; 	 (height (height view)))
-;;     (list :src src :filter :linear :wrap :clamp-to-edge :flip-p nil 
-;; 	  :target :texture-2d
-;; 	  :gl-canvas (make-instance (second texture-src) :width width :height height :camera (camera view))
-;; 	  :fbo nil)))
+;; fbo
+(defmethod process-texture-src (view (src (eql :fbo)) texture-src)
+  (let* ((width (width view))
+	 (height (height view)))
+    (list :src src :filter :linear :wrap :clamp-to-edge :flip-p nil 
+	  :target :texture-2d
+	  :gl-canvas (make-instance (second texture-src) :width width :height height :camera (camera view))
+	  :fbo nil)))
 
-;; (defmethod init-texture-src (view tex-id (src (eql :fbo)) texture-src)
-;;   (unwind-protect (let* ((width (width view))
-;; 			   (height (height view)))
-;; 		      (gl:bind-texture :texture-2d tex-id)
-;; 		      (gl:tex-image-2d :texture-2d 0 :rgba8 width height 0 :rgba
-;; 				       :unsigned-byte (cffi:null-pointer))
-;; 		      (gl:tex-parameter :texture-2d :texture-min-filter :linear)
-;; 		      (gl:tex-parameter :texture-2d :texture-mag-filter :linear)
-;; 		      (gl:tex-parameter :texture-2d :texture-wrap-s :clamp-to-edge)
-;; 		      (gl:tex-parameter :texture-2d :texture-wrap-t :clamp-to-edge)
-;; 		      (gl:bind-texture :texture-2d 0)
-;; 		      (setf (getf texture-src :fbo)
-;; 			(gfx:make-fbo width height :multisample t :texture tex-id))
-;; 		      (gfx:with-fbo ((getf texture-src :fbo))
-;; 			(gfx::init (getf texture-src :gl-canvas))))
-;;       (gl:bind-framebuffer :framebuffer
-;; 			   (gfx::framebuffer (if (gl-canvas view) (fbo view) (gfx::output-fbo (fbo view)))))))
+(defmethod init-texture-src (view tex-id (src (eql :fbo)) texture-src)
+  (unwind-protect (let* ((width (width view))
+			   (height (height view)))
+		      (gl:bind-texture :texture-2d tex-id)
+		      (gl:tex-image-2d :texture-2d 0 :rgba8 width height 0 :rgba
+				       :unsigned-byte (cffi:null-pointer))
+		      (gl:tex-parameter :texture-2d :texture-min-filter :linear)
+		      (gl:tex-parameter :texture-2d :texture-mag-filter :linear)
+		      (gl:tex-parameter :texture-2d :texture-wrap-s :clamp-to-edge)
+		      (gl:tex-parameter :texture-2d :texture-wrap-t :clamp-to-edge)
+		      (gl:bind-texture :texture-2d 0)
+		      (setf (getf texture-src :fbo)
+			(gfx:make-fbo width height :multisample t :texture tex-id))
+		      (gfx:with-fbo ((getf texture-src :fbo))
+			(gfx::init (getf texture-src :gl-canvas))))
+      (gl:bind-framebuffer :framebuffer
+			   (gfx::framebuffer (if (gl-canvas view) (fbo view) (gfx::output-fbo (fbo view)))))))
 
-;; (defmethod update-texture-src (view (src (eql :fbo)) texture-src)
-;;   (let* ((fbo (getf texture-src :fbo)))
-;;     (unwind-protect
-;; 	 (let* ((width (width view))
-;; 		(height (height view)))
-;; 	   (unless (and (= width (gfx:width fbo))
-;; 			(= height (gfx:height fbo)))
-;; 	     (gl:bind-texture :texture-2d (gfx:output-texture fbo))
-;; 	     (gl:tex-image-2d :texture-2d 0 :rgba8 width height 0 :rgba
-;; 			      :unsigned-byte (cffi:null-pointer))
-;; 	     (gl:bind-texture :texture-2d 0)
-;; 	     (gfx:reinit-fbo fbo width height)
-;; 	     (setf (gfx:width (getf texture-src :gl-canvas)) width
-;; 		   (gfx:height (getf texture-src :gl-canvas)) height))
-;; 	   (gfx:with-fbo (fbo)
-;; 	     (gfx::draw (getf texture-src :gl-canvas))))
-;;       (gl:bind-framebuffer :framebuffer
-;; 			   (gfx::framebuffer (if (gl-canvas view) (fbo view) (gfx::output-fbo (fbo view))))))))
+(defmethod update-texture-src (view (src (eql :fbo)) texture-src)
+  (let* ((fbo (getf texture-src :fbo)))
+    (unwind-protect
+	 (let* ((width (width view))
+		(height (height view)))
+	   (unless (and (= width (gfx:width fbo))
+			(= height (gfx:height fbo)))
+	     (gl:bind-texture :texture-2d (gfx:output-texture fbo))
+	     (gl:tex-image-2d :texture-2d 0 :rgba8 width height 0 :rgba
+			      :unsigned-byte (cffi:null-pointer))
+	     (gl:bind-texture :texture-2d 0)
+	     (gfx:reinit-fbo fbo width height)
+	     (setf (gfx:width (getf texture-src :gl-canvas)) width
+		   (gfx:height (getf texture-src :gl-canvas)) height))
+	   (gfx:with-fbo (fbo)
+	     (gfx::draw (getf texture-src :gl-canvas))))
+      (gl:bind-framebuffer :framebuffer
+			   (gfx::framebuffer (if (gl-canvas view) (fbo view) (gfx::output-fbo (fbo view))))))))
 
-;; (defmethod destroy-texture-src (view (src (eql :fbo)) texture-src new-texture-srcs)
-;;   (declare (ignore new-texture-srcs))
-;;   (unwind-protect (progn
-;; 		      (gfx:with-fbo ((getf texture-src :fbo))
-;; 			(gfx::shutdown (getf texture-src :gl-canvas)))
-;; 		      (gfx:cleanup-context (getf texture-src :gl-canvas))
-;; 		      (gfx:cleanup-fbo (getf texture-src :fbo)))
-;;       (gl:bind-framebuffer :framebuffer
-;; 			   (gfx::framebuffer (if (gl-canvas view) (fbo view) (gfx::output-fbo (fbo view)))))))
+(defmethod destroy-texture-src (view (src (eql :fbo)) texture-src new-texture-srcs)
+  (declare (ignore new-texture-srcs))
+  (unwind-protect (progn
+		      (gfx:with-fbo ((getf texture-src :fbo))
+			(gfx::shutdown (getf texture-src :gl-canvas)))
+		      (gfx:cleanup-context (getf texture-src :gl-canvas))
+		      (gfx:cleanup-fbo (getf texture-src :fbo)))
+      (gl:bind-framebuffer :framebuffer
+			   (gfx::framebuffer (if (gl-canvas view) (fbo view) (gfx::output-fbo (fbo view)))))))
 
 ;; ;;; iosurface
 ;; (defmethod process-texture-src (view (src (eql :io-surface)) texture-src)
