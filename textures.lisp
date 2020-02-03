@@ -1,66 +1,66 @@
 (in-package :cl-visual)
 
-;; ;;; 
-;; ;;; audio-frame
-;; ;;; 
-;; (defun initialize-audio-frame (frame-bus)
-;;   (setf (getf (audio-data *shadertoy-canvas*) :scope-synth)
-;;     (sc:proxy :shadertoy-audio-frame
-;;       (sc:with-controls ((bus frame-bus))
-;; 	(let* ((audio-data (audio-data *shadertoy-canvas*))
-;; 	       (wavebuf (getf audio-data :wavebuf))
-;; 	       (freqbuf (getf audio-data :freqbuf))
-;; 	       (phase (- 1 (* 2 (sc:reciprocal 8192))))
-;; 	       (fft-buf (sc:local-buf 8192 1))
-;; 	       (n-samples (* 0.5 (- (sc:buf-samples.ir fft-buf) 2)))
-;; 	       (signal (sc:mix (sc:in.ar bus 2)))
-;; 	       (freqs (sc:fft fft-buf signal 0.5 1))
-;; 	       (indexer (+ n-samples 2
-;; 			   (* (sc:lf-saw.ar (/ 2 (sc:buf-dur.ir fft-buf)) phase)
-;; 			      n-samples)))
-;; 	       (indexer (sc::round~  indexer 2))
-;; 	       (s0 (sc:buf-rd.ar 1 fft-buf indexer 1 1))
-;; 	       (s1 (sc:buf-rd.ar 1 fft-buf (+ 1 indexer) 1 1))
-;; 	       (lin-mag (sqrt (+ (* s0 s0) (* s1 s1)))))
-;; 	  (declare (ignorable freqs))
-;; 	  (sc:record-buf.ar lin-mag freqbuf)
-;; 	  (sc:record-buf.ar (* 1.0 signal) wavebuf)
-;; 	  0.0))
-;;       :to (audio-group *shadertoy-canvas*)
-;;       :fade .0)))
+;;; 
+;;; audio-frame
+;;; 
+(defun initialize-audio-frame (frame-bus)
+  (setf (getf (audio-data *visual-canvas*) :scope-synth)
+    (sc:proxy :shadertoy-audio-frame
+      (sc:with-controls ((bus frame-bus))
+	(let* ((audio-data (audio-data *visual-canvas*))
+	       (wavebuf (getf audio-data :wavebuf))
+	       (freqbuf (getf audio-data :freqbuf))
+	       (phase (- 1 (* 2 (sc:reciprocal 8192))))
+	       (fft-buf (sc:local-buf 8192 1))
+	       (n-samples (* 0.5 (- (sc:buf-samples.ir fft-buf) 2)))
+	       (signal (sc:mix (sc:in.ar bus 2)))
+	       (freqs (sc:fft fft-buf signal 0.5 1))
+	       (indexer (+ n-samples 2
+			   (* (sc:lf-saw.ar (/ 2 (sc:buf-dur.ir fft-buf)) phase)
+			      n-samples)))
+	       (indexer (sc::round~  indexer 2))
+	       (s0 (sc:buf-rd.ar 1 fft-buf indexer 1 1))
+	       (s1 (sc:buf-rd.ar 1 fft-buf (+ 1 indexer) 1 1))
+	       (lin-mag (sqrt (+ (* s0 s0) (* s1 s1)))))
+	  (declare (ignorable freqs))
+	  (sc:record-buf.ar lin-mag freqbuf)
+	  (sc:record-buf.ar (* 1.0 signal) wavebuf)
+	  0.0))
+      :to (audio-group *visual-canvas*)
+      :fade .0)))
 
-;; (defmethod process-texture-src (view (src (eql :audio-frame)) texture-src)
-;;   (let* ((frame-bus (getf (cdr texture-src) :frame-bus))
-;; 	 (synth (getf (audio-data *shadertoy-canvas*) :scope-synth)))
-;;     (setf frame-bus (if frame-bus frame-bus 0))
-;;     (if synth (sc::ctrl synth :bus frame-bus)
-;;       (initialize-audio-frame frame-bus))    
-;;     (list :src src :context view :filter :linear :wrap :clamp-to-edge :flip-p nil
-;;      :target :texture-2d)))
+(defmethod process-texture-src (view (src (eql :audio-frame)) texture-src)
+  (let* ((frame-bus (getf (cdr texture-src) :frame-bus))
+	 (synth (getf (audio-data view) :scope-synth)))
+    (setf frame-bus (if frame-bus frame-bus 0))
+    (if synth (sc::ctrl synth :bus frame-bus)
+      (initialize-audio-frame frame-bus))    
+    (list :src src :context view :filter :linear :wrap :clamp-to-edge :flip-p nil
+     :target :texture-2d)))
 
-;; (defmethod update-texture-src (view (src (eql :audio-frame)) texture-src)
-;;   (declare (ignore view texture-src))
-;;   (let* ((audio-data (audio-data *shadertoy-canvas*))
-;; 	 (wavebuf (sc:buffer-data (getf audio-data :wavebuf)))
-;; 	 (freqbuf (sc:buffer-data (getf audio-data :freqbuf)))
-;; 	 (scope-buffer (getf audio-data :scope-buffer)))
-;;     (cffi:with-pointer-to-vector-data (wavebuf-ptr wavebuf)
-;;       (cffi:with-pointer-to-vector-data (freqbuf-ptr freqbuf)
-;; 	(cffi:foreign-funcall "memcpy" :pointer scope-buffer :pointer freqbuf-ptr :sizet (* 4096 4))
-;; 	(cffi:foreign-funcall "memcpy" :pointer (cffi:inc-pointer scope-buffer (* 4096 4))
-;; 				       :pointer wavebuf-ptr
-;; 				       :sizet (* 4096 4) )))
-;;     (gl:tex-image-2d :texture-2d 0 :r32f 4096 2 0 :red :float scope-buffer)))
+(defmethod update-texture-src (view (src (eql :audio-frame)) texture-src)
+  (declare (ignore view texture-src))
+  (let* ((audio-data (audio-data view))
+	 (wavebuf (sc:buffer-data (getf audio-data :wavebuf)))
+	 (freqbuf (sc:buffer-data (getf audio-data :freqbuf)))
+	 (scope-buffer (getf audio-data :scope-buffer)))
+    (cffi:with-pointer-to-vector-data (wavebuf-ptr wavebuf)
+      (cffi:with-pointer-to-vector-data (freqbuf-ptr freqbuf)
+	(cffi:foreign-funcall "memcpy" :pointer scope-buffer :pointer freqbuf-ptr :sizet (* 4096 4))
+	(cffi:foreign-funcall "memcpy" :pointer (cffi:inc-pointer scope-buffer (* 4096 4))
+				       :pointer wavebuf-ptr
+				       :sizet (* 4096 4) )))
+    (gl:tex-image-2d :texture-2d 0 :r32f 4096 2 0 :red :float scope-buffer)))
 
-;; (defmethod destroy-texture-src (view (src (eql :audio-frame)) texture-src new-texture-srcs)
-;;   (declare (ignore view texture-src))
-;;   (let* ((synth (getf (audio-data *shadertoy-canvas*) :scope-synth))
-;; 	 (find-audio-frame (loop for new-src in new-texture-srcs
-;; 				 do (when (eql :audio-frame (car (alexandria:ensure-list new-src)))
-;; 				      (return t)))))
-;;     (unless find-audio-frame
-;;       (sc:free synth)
-;;       (setf (getf (audio-data *shadertoy-canvas*) :scope-synth) nil))))
+(defmethod destroy-texture-src (view (src (eql :audio-frame)) texture-src new-texture-srcs)
+  (declare (ignore view texture-src))
+  (let* ((synth (getf (audio-data view) :scope-synth))
+	 (find-audio-frame (loop for new-src in new-texture-srcs
+				 do (when (eql :audio-frame (car (alexandria:ensure-list new-src)))
+				      (return t)))))
+    (unless find-audio-frame
+      (sc:free synth)
+      (setf (getf (audio-data view) :scope-synth) nil))))
 
 ;; ;;;
 ;; ;;; screen frame
