@@ -137,19 +137,18 @@
 	(gl:bind-texture :texture-2d 0)))))
 
 
+;;;
+;;; av-player
+;;;
+(defmethod process-texture-src (view (src av:player) texture-src)
+  (declare (ignore view texture-src))
+  (list :src src :filter :linear :wrap :clamp-to-edge :flip-p nil :auto-release-p nil
+   :target :texture-2d))
 
-;; ;;;
-;; ;;; av-player
-;; ;;;
-;; (defmethod process-texture-src (view (src av:av-player) texture-src)
-;;   (declare (ignore view texture-src))
-;;   (list :src src :filter :linear :wrap :clamp-to-edge :flip-p nil :auto-release-p nil
-;;    :target :texture-2d))
-
-;; (defmethod update-texture-src (view (src av:av-player) texture-src)
-;;   (declare (ignore view texture-src))
-;;   (av:with-av-player (src frame width height)
-;;     (gl:tex-image-2d :texture-2d 0 :rgba8 width height 0 :rgba :unsigned-byte frame)))
+(defmethod update-texture-src (view (src av:player) texture-src)
+  (declare (ignore view texture-src))
+  (av:with-media-data (src width height data)
+    (gl:tex-image-2d :texture-2d 0 :rgba8 width height 0 :rgba :unsigned-byte data)))
 
 ;;; 
 ;;; av-capture
