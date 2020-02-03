@@ -251,29 +251,31 @@
   (declare (ignore view texture-src new-texture-srcs)))
 
 
-;; ;;; Buffer of SuperCollider
-;; (defmethod process-texture-src (view (src sc::buffer) texture-src)
-;;   (declare (ignore view texture-src))
-;;   (list :src src :filter :nearest :wrap :clamp-to-edge :flip-p nil
-;; 	:target :texture-rectangle))
+;;; Buffer of SuperCollider
+(defmethod process-texture-src (view (src sc::buffer) texture-src)
+  (declare (ignore view texture-src))
+  (list :src src :filter :nearest :wrap :clamp-to-edge :flip-p nil
+	:target :texture-rectangle))
 
-;; (defmethod init-texture-src (view tex-id (src sc::buffer) texture-src)
-;;   (declare (ignore view texture-src))
-;;   (gl:bind-texture :texture-rectangle tex-id)
-;;   (gl:tex-parameter :texture-rectangle :texture-min-filter :nearest)
-;;   (gl:tex-parameter :texture-rectangle :texture-mag-filter :nearest)
-;;   (gl:tex-parameter :texture-rectangle :texture-wrap-s :clamp-to-edge)
-;;   (gl:tex-parameter :texture-rectangle :texture-wrap-t :clamp-to-edge)
-;;   (gl:bind-texture :texture-rectangle 0))
+(defmethod init-texture-src (view tex-id (src sc::buffer) texture-src)
+  (declare (ignore view texture-src))
+  (gl:bind-texture :texture-rectangle tex-id)
+  (gl:tex-parameter :texture-rectangle :texture-min-filter :nearest)
+  (gl:tex-parameter :texture-rectangle :texture-mag-filter :nearest)
+  (gl:tex-parameter :texture-rectangle :texture-wrap-s :clamp-to-edge)
+  (gl:tex-parameter :texture-rectangle :texture-wrap-t :clamp-to-edge)
+  (gl:bind-texture :texture-rectangle 0))
 
-;; (defmethod update-texture-src (view (src sc::buffer) texture-src)
-;;   (declare (ignore view texture-src))
-;;   (cffi:with-foreign-slots ((sc::snd-bufs) (sc::sc-world sc::*s*) (:struct sc::world))
-;;     (let* ((data (getf (cffi:mem-aref sc::snd-bufs '(:struct sc::snd-buf) (sc::bufnum src)) 'sc::data)))
-;;       (gl:tex-image-2d :texture-rectangle 0 :r32f (min 44100 (* (sc:chanls src) (sc:frames src))) 1 0 :red :float data))))
+(defmethod update-texture-src (view (src sc::buffer) texture-src)
+  (declare (ignore view texture-src))
+  (cffi:with-foreign-slots ((sc::snd-bufs) (sc::sc-world sc::*s*) (:struct sc::world))
+    (let* ((data (getf (cffi:mem-aref sc::snd-bufs '(:struct sc::snd-buf)
+				      (sc::bufnum src)) 'sc::data)))
+      (gl:tex-image-2d :texture-rectangle 0 :r32f (min 44100 (* (sc:chanls src) (sc:frames src)))
+		       1 0 :red :float data))))
 
-;; (defmethod destroy-texture-src (view (src sc::buffer) texture-src new-texture-srcs)
-;;   (declare (ignore view texture-src new-texture-srcs)))
+(defmethod destroy-texture-src (view (src sc::buffer) texture-src new-texture-srcs)
+  (declare (ignore view texture-src new-texture-srcs)))
 
 
 ;; ;; fbo
