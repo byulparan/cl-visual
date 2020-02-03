@@ -262,7 +262,7 @@
 (defmacro gfx::define-shader (name &body body)
   (flet ((in (symb)
   	   (intern (string-upcase symb) :cl-visual)))
-    `(gfx:defpipeline (,(intern (format nil "SHADER-~a" (string-upcase name))) :version 330)
+    `(gfx:defpipeline (,name :version 330)
 	 ((,(in 'ichannel0) :sampler-2d)
 	  (,(in 'ichannel1) :sampler-2d)
 	  (,(in 'ichannel2) :sampler-2d)
@@ -296,8 +296,8 @@
 				      retina
 				      (info t)
 				      gl-canvas)
-  (let* ((window-name (format nil "~a" shader))
-	 (shader (intern (format nil "SHADER-~a" shader))))
+  (let* ((window-name (format nil "~a" shader)))
+    (assert (gethash shader gfx::*all-pipeline-table*) nil "can't find \"~a\" shader" shader)
     `(if *visual-canvas* (progn (send-message (mailbox *visual-canvas*)
 					      (list :textures ,textures
 						    :shader ',shader
@@ -331,8 +331,7 @@
 	 			       :retina ,retina
 	 			       :core-profile nil))
 	 	(window (make-instance 'ns:window :x 0 :y 1000 :w ,(if size (second size) 720) :h ,(if size (third size) 450)
-	 			       :title ,window-name))
-		)
+	 			       :title ,window-name)))
 	   (ns:objc canvas "setWantsBestResolutionOpenGLSurface:" :bool (retina canvas))
 	   (setf (ns:content-view window) canvas)
 	   (setf (window canvas) window)
