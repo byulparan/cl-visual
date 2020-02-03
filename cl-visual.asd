@@ -4,7 +4,7 @@
 	       :cl-nextstep
 	       :ftgl
 	       :cl-syphon
-	       :sc-user
+	       :sc-internal
 	       #+sbcl :sb-concurrency
 	       #+ccl #:safe-queue)
   :components ((:file "package")
