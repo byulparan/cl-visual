@@ -227,29 +227,28 @@
 ;;     (syphon:stop-syphon-client syphon)
 ;;     (#/release syphon)))
 
-;; ;;; simple-array singloe-float
-;; #+ccl
-;; (defmethod process-texture-src (view (src ccl::simple-short-float-vector) texture-src)
-;;   (declare (ignore view texture-src))
-;;   (list :src src :filter :nearest :wrap :clamp-to-edge :flip-p nil
-;; 	:target :texture-rectangle))
-;; #+ccl
-;; (defmethod init-texture-src (view tex-id (src ccl::simple-short-float-vector) texture-src)
-;;   (declare (ignore view texture-src))
-;;   (gl:bind-texture :texture-rectangle tex-id)
-;;   (gl:tex-parameter :texture-rectangle :texture-min-filter :nearest)
-;;   (gl:tex-parameter :texture-rectangle :texture-mag-filter :nearest)
-;;   (gl:tex-parameter :texture-rectangle :texture-wrap-s :clamp-to-edge)
-;;   (gl:tex-parameter :texture-rectangle :texture-wrap-t :clamp-to-edge)
-;;   (gl:bind-texture :texture-rectangle 0))
-;; #+ccl
-;; (defmethod update-texture-src (view (src ccl::simple-short-float-vector) texture-src)
-;;   (declare (ignore view texture-src))
-;;   (cffi:with-pointer-to-vector-data (ptr src)
-;;     (gl:tex-image-2d :texture-rectangle 0 :r32f (length src) 1 0 :red :float ptr)))
-;; #+ccl
-;; (defmethod destroy-texture-src (view (src ccl::simple-short-float-vector) texture-src new-texture-srcs)
-;;   (declare (ignore view texture-src new-texture-srcs)))
+;;; simple-array singloe-float
+(defmethod process-texture-src (view (src simple-array) texture-src)
+  (declare (ignore view texture-src))
+  (list :src src :filter :nearest :wrap :clamp-to-edge :flip-p nil
+	:target :texture-rectangle))
+
+(defmethod init-texture-src (view tex-id (src simple-array) texture-src)
+  (declare (ignore view texture-src))
+  (gl:bind-texture :texture-rectangle tex-id)
+  (gl:tex-parameter :texture-rectangle :texture-min-filter :nearest)
+  (gl:tex-parameter :texture-rectangle :texture-mag-filter :nearest)
+  (gl:tex-parameter :texture-rectangle :texture-wrap-s :clamp-to-edge)
+  (gl:tex-parameter :texture-rectangle :texture-wrap-t :clamp-to-edge)
+  (gl:bind-texture :texture-rectangle 0))
+
+(defmethod update-texture-src (view (src simple-array) texture-src)
+  (declare (ignore view texture-src))
+  (cffi:with-pointer-to-vector-data (ptr src)
+    (gl:tex-image-2d :texture-rectangle 0 :r32f (length src) 1 0 :red :float ptr)))
+
+(defmethod destroy-texture-src (view (src simple-array) texture-src new-texture-srcs)
+  (declare (ignore view texture-src new-texture-srcs)))
 
 
 ;; ;;; Buffer of SuperCollider
