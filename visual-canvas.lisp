@@ -349,25 +349,23 @@
 	   (setf *visual-canvas* canvas)
 	   (ns:window-show window))))))
 
-
-
 (defmethod ns:mouse-wheel ((view visual-canvas) event localtion-x location-y)
-  ;; (declare (ignore cocoa-event))
-  ;; (let* ((x (eg:point-x delta))
-  ;; 	 (y (eg:point-y delta))
-  ;; 	 (camera (camera (renderer view))))
-  ;;   (if (> .004 (abs x)) (setf x 0.0))
-  ;;   (if (> .004 (abs y)) (setf y 0.0))
-  ;;   (cond ((eg:control-key-p) (gfx:track-mouse-zoom camera  (- x) (- y) .1))
-  ;; 	  ((eg:shift-key-p) (gfx:track-mouse-pan camera (- x) y .1))
-  ;; 	  (t (gfx:track-mouse-spin camera x (- y) .1))))
+  (declare (ignore location-x location-y))
+  (let* ((x (float (ns:objc event "deltaX" :double) 1.0))
+  	 (y (float (ns:objc event "deltaY" :double) 1.0))
+  	 (camera (camera (renderer view))))
+    (if (> .004 (abs x)) (setf x 0.0))
+    (if (> .004 (abs y)) (setf y 0.0))
+    (cond ((ns:ctrl-p event) (gfx:track-mouse-zoom camera  (- x) (- y) .1))
+    	  ((ns:shift-p event) (gfx:track-mouse-pan camera (- x) y .1))
+    	  (t (gfx:track-mouse-spin camera x (- y) .1)))))
 
-  )
-
-(defun gfx::reset-shadertoy-camera (&key (eye-x 0.0) (eye-y 0.0) (eye-z 5.0) (center-x 0.0) (center-y 0.0) (center-z 0.0))
+(defun gfx::reset-shadertoy-camera (&key (eye-x 0.0) (eye-y 0.0) (eye-z 5.0)
+				      (center-x 0.0) (center-y 0.0) (center-z 0.0))
   (when *visual-canvas*
-    (gfx:reset-camera (camera (renderer *visual-canvas*)) :eye-x eye-x :eye-y eye-y :eye-z eye-z
-							     :center-x center-x :center-y center-y :center-z center-z)
+    (gfx:reset-camera (camera (renderer *visual-canvas*))
+		      :eye-x eye-x :eye-y eye-y :eye-z eye-z
+		      :center-x center-x :center-y center-y :center-z center-z)
     t))
 
 (gfx::clear-pipeline)
