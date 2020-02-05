@@ -183,49 +183,49 @@
     (av:stop-capture src)
     (av:release-capture src)))
 
-;; ;;; 
-;; ;;; syphon
-;; ;;; 
-;; (defmethod process-texture-src (view (src (eql :syphon)) texture-src)
-;;   (if (find :syphon-client texture-src) (push :src texture-src)
-;;     (let* ((app-key (second texture-src))
-;; 	   (name-key (third texture-src))
-;; 	   (syphon (syphon:get-syphon-server app-key (if name-key name-key ""))))
-;;       (list :src :syphon :filter :linear :wrap :clamp-to-edge :flip-p nil
-;; 	    :app-key app-key
-;; 	    :name-key name-key
-;; 	    :size (list 0 0)
-;; 	    :syphon-client (when syphon
-;; 			     (syphon:make-syphon-client syphon (cgl-context view)))
-;; 	    :syphon-image nil
-;; 	    :target :texture-rectangle))))
+;;; 
+;;; syphon
+;;; 
+(defmethod process-texture-src (view (src (eql :syphon)) texture-src)
+  (if (find :syphon-client texture-src) (push :src texture-src)
+    (let* ((app-key (second texture-src))
+	   (name-key (third texture-src))
+	   (syphon (syphon:get-server app-key (if name-key name-key ""))))
+      (list :src :syphon :filter :linear :wrap :clamp-to-edge :flip-p nil
+	    :app-key app-key
+	    :name-key name-key
+	    :size (list 0 0)
+	    :syphon-client (when syphon
+			     (syphon:make-client syphon (cgl-context view)))
+	    :target :texture-rectangle))))
 
-;; (defmethod init-texture-src (view tex-id (src (eql :syphon)) texture-src)
-;;   (declare (ignore view tex-id src texture-src)))
+(defmethod init-texture-src (view tex-id (src (eql :syphon)) texture-src)
+  (declare (ignore view tex-id src texture-src)))
 
-;; (defmethod update-texture-src (view (src (eql :syphon)) texture-src)
-;;   (alexandria:when-let ((syphon (getf texture-src :syphon-client)))
-;;     (let* ((image (syphon:new-frame-image syphon))
-;; 	   (size (syphon:texture-size image))
-;; 	   (w (car size))
-;; 	   (h (second size))
-;; 	   (orig-size (getf texture-src :size))
-;; 	   (name (syphon:texture-name image)))
-;;       (unless (and (= w (car orig-size))
-;; 		   (= h (second orig-size)))
-;; 	(format t "~&<Syphon-~s~@[|~s~]> image-size: ~a, ~a image-name: ~a~%"
-;; 		(getf texture-src :app-key)
-;; 		(getf texture-src :name-key)
-;; 		w h name)
-;; 	(setf (getf texture-src :size) (list w h)))
-;;       (setf (getf texture-src :syphon-image) image)
-;;       (gl:bind-texture :texture-rectangle name))))
+(defmethod update-texture-src (view (src (eql :syphon)) texture-src)
+  (alexandria:when-let ((syphon (getf texture-src :syphon-client)))
+    (let* ((image (syphon:new-frame-image syphon)))
+      (unless (cffi:null-pointer-p image)
+	(ns:autorelease image)
+	(let* ((size (syphon:texture-size image))
+	       (w (ns:size-width size))
+	       (h (ns:size-height size))
+	       (orig-size (getf texture-src :size))
+	       (name (syphon:texture-name image)))
+	  (unless (and (= w (car orig-size))
+	  		   (= h (second orig-size)))
+	  	(format t "~&<Syphon-~s~@[|~s~]> image-size: ~a, ~a image-name: ~a~%"
+	  		(getf texture-src :app-key)
+	  		(getf texture-src :name-key)
+	  		w h name)
+	  	(setf (getf texture-src :size) (list w h)))
+	  (gl:bind-texture :texture-rectangle name))))))
 
-;; (defmethod destroy-texture-src (view (src (eql :syphon)) texture-src new-texture-srcs)
-;;   (declare (ignore view new-texture-srcs))
-;;   (alexandria:when-let ((syphon (getf texture-src :syphon-client)))
-;;     (syphon:stop-syphon-client syphon)
-;;     (#/release syphon)))
+(defmethod destroy-texture-src (view (src (eql :syphon)) texture-src new-texture-srcs)
+  (declare (ignore view new-texture-srcs))
+  (alexandria:when-let ((syphon (getf texture-src :syphon-client)))
+    (syphon:stop-client syphon)
+    (ns:release syphon)))
 
 ;;; simple-array singloe-float
 (defmethod process-texture-src (view (src simple-array) texture-src)
