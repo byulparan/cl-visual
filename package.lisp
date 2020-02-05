@@ -40,5 +40,8 @@
 	   #:icontrol9
 	   #:iresolution
 	   #:camera
-	   #:lookat))
+	   #:lookat
+	   #:projection-matrix
+	   #:modelview-matrix
+	   #:vfuv))
 

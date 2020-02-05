@@ -259,31 +259,6 @@
   (sc:free (audio-group view))
   (setf *visual-canvas* nil))
 
-(defmacro gfx::define-shader (name &body body)
-  (flet ((in (symb)
-  	   (intern (string-upcase symb) :cl-visual)))
-    `(gfx:defpipeline (,name :version 330)
-	 ((,(in 'ichannel0) :sampler-2d)
-	  (,(in 'ichannel1) :sampler-2d)
-	  (,(in 'ichannel2) :sampler-2d)
-	  (,(in 'ichannel3) :sampler-2d)
-	  (,(in 'ichannel4) :sampler-2d)
-	  (,(in 'ichannel5) :sampler-2d)
-	  (,(in 'ichannel6) :sampler-2d)
-	  (,(in 'ichannel7) :sampler-2d)
-	  (,(in 'iglobal-time) :float)
-	  (,(in 'itime) :float)
-	  ,@(loop for i from 0 below 6
-		  collect (list (in (intern (format nil "IVOLUME~d" i))) :float))
-	  ,@(loop for i from 0 below 10
-		  collect (list (in (intern (format nil "ICONTROL~d" i))) :float))
-	  (,(in 'iresolution) :vec2)
-	  (,(in 'camera) :vec3)
-	  (,(in 'lookat) :vec3))
-       (:vertex ((,(in 'pos) :vec2))
-    		(v! (- (* ,(in 'pos) 2.0) 1.0) 0.0 1.0))
-       (:fragment nil
-    		  (progn ,@body)))))
 
 (defmacro gfx::start-shader (shader &key textures
 				      (reinit-time (let ((cur-time (gfx:get-internal-seconds)))
