@@ -58,6 +58,37 @@
        (with-camera (,rd-var ,uv-var ,(car ro) ,(car ta) (v! .0 1.0 .0) ,dist)
 	 ,@body))))
 
+
+(define-macro-library with-hybrid ((ro rd depth) &body body)
+  `(let* ((uv vfuv)
+	  (,ro (let* ((ro (- (xyz (aref modelview-matrix 3)))))
+		 (incf (x ro) (x (aref projection-matrix 2)))
+		 ro))
+	  (,rd (let* ((aspect (/ (x iresolution) (y iresolution)))
+		      (u-fovy (/ 1.0 (y (aref projection-matrix 1))))
+		      (dir (v! (* (x uv) u-fovy  aspect)
+			       (* (y uv) u-fovy)
+			       -1.0)))
+		 (normalize dir)))
+	  (,depth 9999.0))
+     (incf (x ,rd) (x (aref projection-matrix 2)))
+     (setf ,rd (normalize ,rd))
+     (setf ,ro (* ,ro (mat3 modelview-matrix)))
+     (setf ,rd (* ,rd (mat3 modelview-matrix)))
+     ,@body
+     (let* ((eye-fwd (* (v! 0.0 0.0 -1.0) (mat3 modelview-matrix)))
+	    (eye-hit-z (* (- ,depth) (dot ,rd eye-fwd)))
+	    (p10 (z (aref projection-matrix 2)))
+	    (p11 (z (aref projection-matrix 3)))
+	    (ndc-depth (+ (- p10) (/ (- p11) eye-hit-z)))
+	    (dep (/ (+ (* (s~ gl-depth-range "diff" :float) ndc-depth)
+		       (s~ gl-depth-range "near" :float)
+		       (s~ gl-depth-range "far" :float))
+		    2.0)))
+       (setf gl-frag-depth dep))))
+
+
+
 (define-function-library op-u ((d1 :float) (d2 :float))
   (let* ((result 0.0))
     (if (< d1 d2) (setf result d1)
