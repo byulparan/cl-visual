@@ -236,6 +236,40 @@
        (:fragment ((vfuv :vec2))
     		  (progn ,@body)))))
 
+
+
+(defun draw-shader (renderer w h)
+  (setf (projection-matrix renderer) (kit.math:perspective-matrix 45.0 (/ w h) .1 10000.0)
+	(modelview-matrix renderer) (gfx:eval-camera (camera renderer)))
+  (let* ((time (funcall (reinit-time renderer))))
+    (apply (shader renderer) renderer `(:triangles 0 6 ,(gpu-stream renderer)
+					:ichannel0 0 :ichannel1 1 :ichannel2 2 :ichannel3 3
+					:ichannel4 4 :ichannel5 5 :ichannel6 6 :ichannel7 7
+					:iglobal-time ,time :itime ,time
+					:ivolume0 ,(sc:control-get-sync *ivolume-index*)
+					,@(loop for i from 0 below (- *num-ivolume* 1)
+						append `(,(intern (format nil "IVOLUME~d" (+ i 1)) :keyword)
+							 ,(sc:control-get-sync (+ *ivolume-index* i 1))))
+					,@(loop for i from 0 below *num-icontrol*
+						append
+						`(,(intern (format nil "ICONTROL~d" i) :keyword)
+						  ,(sc:control-get-sync (+ *icontrol-index* i))))
+					:iresolution ,(list w h)
+					:camera ,(list (gfx::eye-x (camera renderer))
+						       (gfx::eye-y (camera renderer))
+						       (gfx::eye-z (camera renderer)))
+					:lookat ,(list (gfx::center-x (camera renderer))
+						       (gfx::center-y (camera renderer))
+						       (gfx::center-z (camera renderer)))
+					:projection-matrix ,(projection-matrix renderer)
+					:modelview-matrix ,(modelview-matrix renderer)))
+    (when-let ((canvas (gl-canvas renderer)))
+      (setf (gfx:width canvas) w (gfx:height canvas) h)
+      (setf (gfx:projection-matrix canvas) (projection-matrix renderer)
+	    (gfx:modelview-matrix canvas) (modelview-matrix renderer))
+      (gfx:draw canvas))))
+
+
 (defun render (renderer)
   (with-cgl-context ((cgl-context renderer))
     (let* ((w (width renderer))
@@ -244,7 +278,6 @@
 		       (gfx::output-fbo (fbo renderer)))))
       (gfx:with-fbo (draw-fbo)
 	(gl:viewport 0 0 w h)
-	(gl:enable :depth-test)
 	(gl:clear :color-buffer-bit :depth-buffer-bit)
 	(loop for tex-id in (textures-toy renderer)
 	      for unit in '(:texture0 :texture1 :texture2 :texture3
@@ -253,36 +286,8 @@
 	      do (gl:active-texture unit)
 		 (gl:bind-texture (getf src :target) tex-id)
 		 (update-texture-src renderer (getf src :src) src))
-	(let ((time (funcall (reinit-time renderer))))
-	  (when (shader renderer)
-	    (setf (projection-matrix renderer) (kit.math:perspective-matrix 45.0 (/ w h) .1 10000.0)
-		  (modelview-matrix renderer) (gfx:eval-camera (camera renderer)))
-	    (apply (shader renderer) renderer `(:triangles 0 6 ,(gpu-stream renderer)
-						:ichannel0 0 :ichannel1 1 :ichannel2 2 :ichannel3 3
-						:ichannel4 4 :ichannel5 5 :ichannel6 6 :ichannel7 7
-						:iglobal-time ,time :itime ,time
-						:ivolume0 ,(sc:control-get-sync *ivolume-index*)
-						,@(loop for i from 0 below (- *num-ivolume* 1)
-							append `(,(intern (format nil "IVOLUME~d" (+ i 1)) :keyword)
-								 ,(sc:control-get-sync (+ *ivolume-index* i 1))))
-						,@(loop for i from 0 below *num-icontrol*
-							append
-							`(,(intern (format nil "ICONTROL~d" i) :keyword)
-							  ,(sc:control-get-sync (+ *icontrol-index* i))))
-						:iresolution ,(list w h)
-						:camera ,(list (gfx::eye-x (camera renderer))
-							       (gfx::eye-y (camera renderer))
-							       (gfx::eye-z (camera renderer)))
-						:lookat ,(list (gfx::center-x (camera renderer))
-							       (gfx::center-y (camera renderer))
-							       (gfx::center-z (camera renderer)))
-						:projection-matrix ,(projection-matrix renderer)
-						:modelview-matrix ,(modelview-matrix renderer))))
-	  (when-let ((canvas (gl-canvas renderer)))
-	    (setf (gfx:width canvas) w (gfx:height canvas) h)
-	    (setf (gfx:projection-matrix canvas) (projection-matrix renderer)
-		  (gfx:modelview-matrix canvas) (modelview-matrix renderer))
-	    (gfx:draw canvas)))
+	(gl:enable :depth-test)
+	(draw-shader renderer w h)
 	(gl:disable :depth-test))
       (gfx:with-fbo ((gfx::output-fbo (fbo renderer)))
 	(loop for unit in '(:texture0 :texture1 :texture2 :texture3
