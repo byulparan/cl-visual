@@ -38,6 +38,8 @@
        (cgl:set-current-context current))))
 
 (defmethod resize-framebuffer ((renderer renderer) width height)
+  (setf (width renderer) width
+	(height renderer) height)
   (let* ((cgl-context (cgl-context renderer)))
     (with-cgl-context (cgl-context)
       (when (iosurface renderer) (ns:release (iosurface renderer)))
@@ -92,10 +94,6 @@
    (reinit-time
     :initarg :reinit-time
     :accessor reinit-time)
-   (textures-toy
-    :initarg :textures-toy
-    :initform nil
-    :accessor textures-toy)
    (texture-srcs
     :initarg :texture-srcs
     :initform nil
@@ -125,29 +123,21 @@
 ;;; for texture source
 ;;;
 
-(defgeneric process-texture-src (view src texture-src)
+(defgeneric init-texture-src (view src texture-src)
   (:method (view src texture-src)
-    (error "You should implementation this method ~a ~a" src texture-src)))
+    (error "You should implementation this parse method ~a ~a" src texture-src)))
 
-(defgeneric init-texture-src (view tex-id src texture-src)
-  (:method (view tex-id src texture-src)
-    (declare (ignore view src))
-    (gl:bind-texture :texture-2d tex-id)
-    (default-gl-tex-parameter (getf texture-src :filter) (getf texture-src :wrap))
-    (gl:bind-texture :texture-2d 0)))
+(defgeneric update-texture-src (view src texture-src))
 
-(defgeneric update-texture-src (view src texture-src)
-  (:method (view src texture-src)
-    (declare (ignore view src texture-src))))
-
-(defgeneric destroy-texture-src (view src texture-src new-texture-srcs)
-  (:method (view src texture-src new-texture-srcs)
-    (declare (ignore view src texture-src  new-texture-srcs))))
+(defgeneric destroy-texture-src (view src texture-src))
 
 
 ;;; ===========================================================================
 (defun texture-types (texture-srcs)
-  (mapcar (lambda (src) (if (eql :texture-2d (getf src :target)) :sampler-2d :sampler-2d-rect))
+  (mapcar (lambda (src)
+	    (ecase (getf src :target)
+	      (:texture-2d :sampler-2d)
+	      (:texture-rectangle :sampler-2d-rect)))
 	  texture-srcs))
 
 (defun reinit-shader (renderer new-shader)
@@ -167,34 +157,25 @@
 (defun reinit-visual-renderer (renderer options &optional scene-size)
   (with-cgl-context ((cgl-context renderer))
     (when scene-size
-      (setf (width renderer) (car scene-size)
-	    (height renderer) (second scene-size))
-      (resize-framebuffer renderer (width renderer) (height renderer)))
+      (resize-framebuffer renderer (car scene-size) (second scene-size)))
     (reinit-shader renderer (getf options :shader))
     (loop for src in (texture-srcs renderer)
-	  do (destroy-texture-src renderer (getf (alexandria:ensure-list src) :src) src (getf options :textures)))
+	  do (destroy-texture-src renderer (getf src :src) src))
     (let* ((srcs (getf options :textures)))
       (setf (texture-srcs renderer) (loop for src in srcs
 					  collect (let ((src (alexandria:ensure-list src)))
-						    (process-texture-src renderer (car src) src))))
-      (let* ((pipeline (gethash (shader renderer) gfx::*all-pipeline-table*))
-	     (texture-types (texture-types (texture-srcs renderer))))
-	(unless (equal (mapcar #'second (subseq (gfx::%pipeline-uniforms pipeline) 0 (length texture-types)))
-		       texture-types)
-	  (loop for tex in texture-types
-		for uniforms in (gfx::%pipeline-uniforms pipeline)
-		for i from 0 
-		do (unless (eql (second uniforms) tex)
-		     (gl:delete-texture (nth i (textures-toy renderer)))
-		     (setf (nth i (textures-toy renderer)) (gl:gen-texture))
-		     (setf (second (nth i (gfx::%pipeline-uniforms pipeline))) tex)))
-	  (gfx::update-source pipeline)))
-      (loop for src in (texture-srcs renderer)
-	    for tex-id in (textures-toy renderer)
-	    for unit in '(:texture0 :texture1 :texture2 :texture3
-			  :texture4 :texture5 :texture6 :texture7)
-	    do (gl:active-texture unit)
-	       (init-texture-src renderer tex-id (getf src :src) src))
+						    (init-texture-src renderer (car src) (cdr src)))))
+      (when (texture-srcs renderer)
+	(let* ((pipeline (gethash (shader renderer) gfx::*all-pipeline-table*))
+	       (texture-types (texture-types (texture-srcs renderer))))
+	  (unless (equal (mapcar #'second (subseq (gfx::%pipeline-uniforms pipeline) 0 (length texture-types)))
+			 texture-types)
+	    (loop for tex in texture-types
+		  for uniforms in (gfx::%pipeline-uniforms pipeline)
+		  for i from 0 
+		  do (unless (eql (second uniforms) tex)
+		       (setf (second (nth i (gfx::%pipeline-uniforms pipeline))) tex)))
+	    (gfx::update-source pipeline))))
       (when-let ((canvas (gl-canvas renderer)))
 	(setf (gfx:width canvas) (width renderer)
 	      (gfx:height canvas) (height renderer))
@@ -205,37 +186,6 @@
 	(setf (gl-canvas renderer) (make-instance canvas :camera (camera renderer)
 						  :width (width renderer) :height (height renderer)))
 	(gfx:init (gl-canvas renderer))))))
-
-(defmacro gfx::define-shader (name &body body)
-  (flet ((in (symb)
-  	   (intern (string-upcase symb) :cl-visual)))
-    `(gfx:defpipeline (,name :version 330)
-	 ((,(in 'ichannel0) :sampler-2d)
-	  (,(in 'ichannel1) :sampler-2d)
-	  (,(in 'ichannel2) :sampler-2d)
-	  (,(in 'ichannel3) :sampler-2d)
-	  (,(in 'ichannel4) :sampler-2d)
-	  (,(in 'ichannel5) :sampler-2d)
-	  (,(in 'ichannel6) :sampler-2d)
-	  (,(in 'ichannel7) :sampler-2d)
-	  (,(in 'iglobal-time) :float)
-	  (,(in 'itime) :float)
-	  ,@(loop for i from 0 below 6
-		  collect (list (in (intern (format nil "IVOLUME~d" i))) :float))
-	  ,@(loop for i from 0 below 10
-		  collect (list (in (intern (format nil "ICONTROL~d" i))) :float))
-	  (,(in 'iresolution) :vec2)
-	  (,(in 'camera) :vec3)
-	  (,(in 'lookat) :vec3)
-	  (,(in 'projection-matrix) :mat4)
-	  (,(in 'modelview-matrix) :mat4))
-       (:vertex ((,(in 'pos) :vec2))
-		(values
-		 (v! ,(in 'pos) 0.0 1.0)
-		 ,(in 'pos)))
-       (:fragment ((vfuv :vec2))
-    		  (progn ,@body)))))
-
 
 
 (defun draw-shader (renderer w h)
@@ -269,7 +219,6 @@
 	    (gfx:modelview-matrix canvas) (modelview-matrix renderer))
       (gfx:draw canvas))))
 
-
 (defun render (renderer)
   (with-cgl-context ((cgl-context renderer))
     (let* ((w (width renderer))
@@ -279,12 +228,10 @@
       (gfx:with-fbo (draw-fbo)
 	(gl:viewport 0 0 w h)
 	(gl:clear :color-buffer-bit :depth-buffer-bit)
-	(loop for tex-id in (textures-toy renderer)
-	      for unit in '(:texture0 :texture1 :texture2 :texture3
+	(loop for unit in '(:texture0 :texture1 :texture2 :texture3
 			    :texture4 :texture5 :texture6 :texture7)
 	      for src in (texture-srcs renderer)
 	      do (gl:active-texture unit)
-		 (gl:bind-texture (getf src :target) tex-id)
 		 (update-texture-src renderer (getf src :src) src))
 	(gl:enable :depth-test)
 	(draw-shader renderer w h)
@@ -295,13 +242,44 @@
 	      for src in (texture-srcs renderer)
 	      do (gl:active-texture unit)
 		 (case (getf src :src)
-		   (:previous-frame (gl:copy-tex-image-2d :texture-2d 0 :rgba8 0 0 w h 0)))
+		   (:previous-frame
+		    (gl:copy-tex-image-2d :texture-2d 0 :rgba8 0 0 w h 0)))
 		 (gl:bind-texture (getf src :target) 0)))) 
     (gl:flush)))
 
 (defmethod destroy ((renderer visual-renderer))
   (with-cgl-context ((cgl-context renderer))
     (loop for src in (texture-srcs renderer)
-	  do (destroy-texture-src renderer (getf src :src) src nil))
+	  do (destroy-texture-src renderer (getf src :src) src))
     (call-next-method)))
 
+
+(defmacro gfx::define-shader (name &body body)
+  (flet ((in (symb)
+  	   (intern (string-upcase symb) :cl-visual)))
+    `(gfx:defpipeline (,name :version 330)
+	 ((,(in 'ichannel0) :sampler-2d)
+	  (,(in 'ichannel1) :sampler-2d)
+	  (,(in 'ichannel2) :sampler-2d)
+	  (,(in 'ichannel3) :sampler-2d)
+	  (,(in 'ichannel4) :sampler-2d)
+	  (,(in 'ichannel5) :sampler-2d)
+	  (,(in 'ichannel6) :sampler-2d)
+	  (,(in 'ichannel7) :sampler-2d)
+	  (,(in 'iglobal-time) :float)
+	  (,(in 'itime) :float)
+	  ,@(loop for i from 0 below 6
+		  collect (list (in (intern (format nil "IVOLUME~d" i))) :float))
+	  ,@(loop for i from 0 below 10
+		  collect (list (in (intern (format nil "ICONTROL~d" i))) :float))
+	  (,(in 'iresolution) :vec2)
+	  (,(in 'camera) :vec3)
+	  (,(in 'lookat) :vec3)
+	  (,(in 'projection-matrix) :mat4)
+	  (,(in 'modelview-matrix) :mat4))
+       (:vertex ((,(in 'pos) :vec2))
+		(values
+		 (v! ,(in 'pos) 0.0 1.0)
+		 ,(in 'pos)))
+       (:fragment ((vfuv :vec2))
+    		  (progn ,@body)))))
