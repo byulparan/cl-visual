@@ -10,7 +10,7 @@
 
 (defmethod init ((view gl-canvas)))
 (defmethod draw ((view gl-canvas)))
-(defmethod shutdown ((view gl-canvas)))
+(defmethod release ((view gl-canvas)))
 
-(export '(gl-canvas init draw shutdown projection-matrix modelview-matrix)
+(export '(gl-canvas init draw release projection-matrix modelview-matrix)
 	:gfx)

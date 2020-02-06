@@ -389,9 +389,9 @@
   (declare (ignore view src))
   (unwind-protect (progn
   		      (gfx:with-fbo ((tex :fbo))
-  			(gfx::shutdown (tex :gl-canvas)))
-  		      (gfx:cleanup-context (getf texture-src :gl-canvas))
-  		      (gfx:cleanup-fbo (getf texture-src :fbo))
+  			(gfx:release (tex :gl-canvas)))
+  		      (gfx:release-context (getf texture-src :gl-canvas))
+  		      (gfx:release-fbo (getf texture-src :fbo))
   		      (gl:delete-texture (tex :tex-id)))
       (gl:bind-framebuffer :framebuffer
   			   (gfx::framebuffer (if (gl-canvas view) (fbo view) (gfx::output-fbo (fbo view)))))))
@@ -459,8 +459,8 @@
   	 (canvas (tex :gl-canvas)))
     (with-cgl-context ((cgl-context renderer))
       (gfx:with-fbo ((fbo renderer))
-	(gfx:shutdown canvas))
-      (gfx:cleanup-context canvas))
+	(gfx:release canvas))
+      (gfx:release-context canvas))
     (destroy renderer)
     (ns:release (tex :io-surface))))
 
