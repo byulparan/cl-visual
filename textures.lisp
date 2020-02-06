@@ -92,7 +92,7 @@
     (gl:bind-texture (tex :target) (tex :tex-id))
     (gl:tex-image-2d :texture-2d 0 :rgba8 (cg:image-width image) (cg:image-height image) 0
 		     :rgba :unsigned-byte (cg:image-bitmap-data image))
-    (cg:image-release image)))
+    (cg:release-image image)))
 
 (defmethod destroy-texture-src (view (src (eql :screen-frame)) texture-src)
   (declare (ignore view src))
