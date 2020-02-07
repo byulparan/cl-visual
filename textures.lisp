@@ -182,6 +182,40 @@
   (declare (ignore view device))
   (gl:delete-texture (tex :tex-id)))
 
+
+
+;;; 
+;;; bitmap-context
+;;;
+(defmethod init-texture-device (view (device (eql :bitmap-context)) texture-device)
+  (declare (ignore view))
+  (let* ((texture (gl:gen-texture))
+	 (context (tex :src))
+	 (wrap (tex :wrap)))
+      (gl:bind-texture :texture-2d texture)
+      (gl:tex-parameter :texture-2d :texture-mag-filter :linear)
+      (gl:tex-parameter :texture-2d :texture-min-filter :linear)
+      (gl:tex-parameter :texture-2d :texture-wrap-s (if wrap wrap :clamp-to-edge))
+      (gl:tex-parameter :texture-2d :texture-wrap-t (if wrap wrap :clamp-to-edge))
+      (gl:bind-texture :texture-2d 0)
+      (list device
+	    :src context
+	    :tex-id texture :target :texture-2d)))
+
+(defmethod update-texture-device (view (device (eql :bitmap-context)) texture-device)
+  (declare (ignore view device))
+  (let* ((context (tex :src))
+	 (w (cg:bitmap-width context))
+	 (h (cg:bitmap-height context))
+	 (data (cg:bitmap-data context)))
+    (gl:bind-texture :texture-2d (tex :tex-id))
+    (gl:tex-image-2d :texture-2d 0 :rgba8 w h 0 :rgba :unsigned-byte data)))
+
+(defmethod release-texture-device (view (device (eql :bitmap-context)) texture-device)
+  (declare (ignore view device))
+  (gl:delete-texture (tex :tex-id)))
+
+
 ;;;
 ;;; av-player
 ;;;
