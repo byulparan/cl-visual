@@ -513,7 +513,7 @@
       (gfx:with-fbo ((fbo renderer))
 	(gfx:release canvas))
       (gfx:release-context canvas))
-    (destroy renderer)
+    (release renderer)
     (ns:release (tex :io-surface))
     (gl:delete-texture (tex :tex-id))))
 

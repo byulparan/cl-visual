@@ -63,7 +63,7 @@
       (setf cgl-context %cgl-context
   	    pixel-format %pixel-format))))
 
-(defmethod destroy ((renderer renderer))
+(defmethod release ((renderer renderer))
   (with-cgl-context ((cgl-context renderer))
     (gfx:release-context renderer)
     (gfx:release-fbo (fbo renderer))
@@ -246,7 +246,7 @@
 		 (gl:bind-texture (getf (cdr device) :target) 0)))) 
     (gl:flush)))
 
-(defmethod destroy ((renderer visual-renderer))
+(defmethod release ((renderer visual-renderer))
   (with-cgl-context ((cgl-context renderer))
     (loop for device in (texture-devices renderer)
 	  do (release-texture-device renderer (car device) (cdr device)))

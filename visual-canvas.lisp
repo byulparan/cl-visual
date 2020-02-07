@@ -243,8 +243,8 @@
   	(when (info view)
   	  (draw-fps-info (fps-info view) view-w view-h w h))))))
 
-(defmethod ns:shutdown ((view visual-canvas))
-  (destroy (renderer view))
+(defmethod ns:release ((view visual-canvas))
+  (release (renderer view))
   (ns:release (iosurface view))
   (ns:release (ci-context view))
   (destroy-fps-info (fps-info view))
