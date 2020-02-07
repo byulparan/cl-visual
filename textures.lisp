@@ -1,7 +1,7 @@
 (in-package :cl-visual)
 
 (defmacro tex (key)
-  `(getf texture-src ,key))
+  `(getf texture-device ,key))
 
 ;;; 
 ;;; audio-frame
@@ -32,18 +32,19 @@
       :to (audio-group *visual-canvas*)
       :fade .0)))
 
-(defmethod init-texture-src (view (src (eql :audio-frame)) texture-src)
+(defmethod init-texture-device (view (device (eql :audio-frame)) texture-device)
   (let* ((frame-bus (tex :frame-bus))
 	 (synth (getf (audio-data view) :scope-synth))
 	 (texture (gl:gen-texture)))
     (setf frame-bus (if frame-bus frame-bus 0))
     (if synth (sc::ctrl synth :bus frame-bus)
       (initialize-audio-frame frame-bus))    
-    (list :src src :context view :filter :linear :wrap :clamp-to-edge :flip-p nil
+    (list device
+	  :context view :filter :linear :wrap :clamp-to-edge :flip-p nil
 	  :tex-id texture :target :texture-2d)))
 
-(defmethod update-texture-src (view (src (eql :audio-frame)) texture-src)
-  (declare (ignore view texture-src))
+(defmethod update-texture-device (view (device (eql :audio-frame)) texture-device)
+  (declare (ignore view device))
   (let* ((audio-data (audio-data view))
 	 (wavebuf (sc:buffer-data (getf audio-data :wavebuf)))
 	 (freqbuf (sc:buffer-data (getf audio-data :freqbuf)))
@@ -57,8 +58,8 @@
     (gl:bind-texture :texture-2d (tex :tex-id))
     (gl:tex-image-2d :texture-2d 0 :r32f 4096 2 0 :red :float scope-buffer)))
 
-(defmethod destroy-texture-src (view (src (eql :audio-frame)) texture-src)
-  (declare (ignore view texture-src))
+(defmethod release-texture-device (view (device (eql :audio-frame)) texture-device)
+  (declare (ignore view device texture-device))
   (let* ((synth (getf (audio-data view) :scope-synth)))
     (sc:free synth)
     (setf (getf (audio-data view) :scope-synth) nil)))
@@ -66,7 +67,7 @@
 ;;;
 ;;; screen frame
 ;;; 
-(defmethod init-texture-src (view (src (eql :screen-frame)) texture-src)
+(defmethod init-texture-device (view (device (eql :screen-frame)) texture-device)
   (let* ((rect (tex :rect))
 	 (texture (gl:gen-texture)))
     (gl:bind-texture :texture-2d texture)
@@ -78,15 +79,15 @@
     (unless rect (setf rect (list 0 0 200 200)))
     (destructuring-bind (x y w h)
 	rect
-      (list :src src
+      (list device
 	    :filter (if-let ((filter (tex :filter))) filter :linear)
 	    :wrap (if-let ((wrap (tex :wrap))) wrap :repeat)
 	    :rect (ns:make-rect x y w h)
 	    :tex-id texture
 	    :target :texture-2d))))
 
-(defmethod update-texture-src (view (src (eql :screen-frame)) texture-src)
-  (declare (ignore view))
+(defmethod update-texture-device (view (device (eql :screen-frame)) texture-device)
+  (declare (ignore view device))
   (let* ((rect (tex :rect))
   	 (image (cg:image-from-screen rect)))
     (gl:bind-texture (tex :target) (tex :tex-id))
@@ -94,14 +95,14 @@
 		     :rgba :unsigned-byte (cg:image-bitmap-data image))
     (cg:release-image image)))
 
-(defmethod destroy-texture-src (view (src (eql :screen-frame)) texture-src)
-  (declare (ignore view src))
+(defmethod release-texture-device (view (device (eql :screen-frame)) texture-device)
+  (declare (ignore view device))
   (gl:delete-texture (tex :tex-id)))
 
 
 ;; previous frame
-(defmethod init-texture-src (view (src (eql :previous-frame)) texture-src)
-  (declare (ignore view texture-src))
+(defmethod init-texture-device (view (device (eql :previous-frame)) texture-device)
+  (declare (ignore view texture-device))
   (let ((texture (gl:gen-texture))
 	(filter :linear)
 	(wrap :clamp-to-edge))
@@ -111,15 +112,16 @@
     (gl:tex-parameter :texture-2d :texture-wrap-s wrap)
     (gl:tex-parameter :texture-2d :texture-wrap-t wrap)
     (gl:bind-texture :texture-2d 0)
-    (list :src src :filter filter :wrap wrap :flip-p nil
+    (list device
+	  :filter filter :wrap wrap :flip-p nil
 	  :tex-id texture :target :texture-2d)))
 
-(defmethod update-texture-src (view (src (eql :previous-frame)) texture-src)
-  (declare (ignore view src))
+(defmethod update-texture-device (view (device (eql :previous-frame)) texture-device)
+  (declare (ignore view device))
   (gl:bind-texture :texture-2d (tex :tex-id)))
 
-(defmethod destroy-texture-src (view (src (eql :previous-frame)) texture-src)
-  (declare (ignore view src))
+(defmethod release-texture-device (view (device (eql :previous-frame)) texture-device)
+  (declare (ignore view device))
   (gl:delete-texture (tex :tex-id)))
 
 
@@ -135,13 +137,13 @@
 	  (if wrap wrap :repeat)
 	  flip-p)))
 
-(defmethod init-texture-src (view (src string) texture-src)
+(defmethod init-texture-device (view (device string) texture-device)
   (declare (ignore view))
   (destructuring-bind (filter wrap flip-p)
-      (parse-texture-options texture-src)
+      (parse-texture-options texture-device)
     (let* ((texture (gl:gen-texture))
-	   (full-path (uiop:truenamize src)))
-      (assert full-path nil "~s : can't find image file" src)
+	   (full-path (uiop:truenamize device)))
+      (assert full-path nil "~s : can't find image file" device)
       (setf full-path (namestring full-path))
       (let* ((image (gethash full-path (tex-image-table view))))
 	(unless image
@@ -163,21 +165,22 @@
 	  (gl:tex-parameter :texture-2d :texture-wrap-s wrap)
 	  (gl:tex-parameter :texture-2d :texture-wrap-t wrap)
 	  (gl:bind-texture :texture-2d 0)))
-      (list :src src :filter filter :wrap wrap :flip-p flip-p
-	    :tex-id texture
-	    :target :texture-2d))))
+      (list device
+	    :filter filter :wrap wrap :flip-p flip-p :tex-id texture :target :texture-2d))))
 
-(defmethod update-texture-src (view (src string) texture-src)
+(defmethod update-texture-device (view (device string) texture-device)
+  (declare (ignore view device))
   (gl:bind-texture :texture-2d (tex :tex-id)))
 
-(defmethod destroy-texture-src (view (src string) texture-src)
+(defmethod release-texture-device (view (device string) texture-device)
+  (declare (ignore view device))
   (gl:delete-texture (tex :tex-id)))
 
 ;;;
 ;;; av-player
 ;;;
-(defmethod init-texture-src (view (src av:player) texture-src)
-  (declare (ignore view texture-src))
+(defmethod init-texture-device (view (device av:player) texture-device)
+  (declare (ignore view texture-device))
   (let* ((texture (gl:gen-texture)))
     (gl:bind-texture :texture-2d texture)
     (gl:tex-parameter :texture-2d :texture-mag-filter (tex :filter))
@@ -185,26 +188,26 @@
     (gl:tex-parameter :texture-2d :texture-wrap-s (tex :wrap))
     (gl:tex-parameter :texture-2d :texture-wrap-t (tex :wrap))
     (gl:bind-texture :texture-2d 0)
-    (list :src src :filter :linear :wrap :clamp-to-edge :flip-p nil :auto-release-p nil
-	  :tex-id texture
-	  :target :texture-2d)))
+    (list device
+	  :filter :linear :wrap :clamp-to-edge :flip-p nil :auto-release-p nil
+	  :tex-id texture :target :texture-2d)))
 
-(defmethod update-texture-src (view (src av:player) texture-src)
-  (declare (ignore view texture-src))
+(defmethod update-texture-device (view (device av:player) texture-device)
+  (declare (ignore view))
   (gl:bind-texture (tex :target) (tex :tex-id))
-  (av:with-media-data (src width height data)
+  (av:with-media-data (device width height data)
     (gl:tex-image-2d :texture-2d 0 :rgba8 width height 0 :rgba :unsigned-byte data)))
 
-(defmethod destroy-texture-src (view (src av:player) texture-src)
-  (declare (ignore view src))
+(defmethod release-texture-device (view (device av:player) texture-device)
+  (declare (ignore view device))
   (gl:delete-texture (tex :tex-id)))
 
 ;;; 
 ;;; av-capture
 ;;; 
-(defmethod init-texture-src (view (src (eql :live-frame)) texture-src)
+(defmethod init-texture-device (view (device (eql :live-frame)) texture-device)
   (declare (ignore view))
-  (let* ((index (tex :index)))
+  (let* ((index (tex :src)))
     (unless index (setf index 0))
     (let* ((capture (av:make-camera-capture index))
 	   (texture (gl:gen-texture))
@@ -217,15 +220,14 @@
       (gl:tex-parameter :texture-2d :texture-wrap-t wrap)
       (gl:bind-texture :texture-2d 0)
       (av:start-capture capture)
-      (list :src capture
-	    :device-index index
+      (list capture
 	    :release-p t
 	    :filter filter  :wrap wrap :flip-p nil
 	    :tex-id texture
 	    :target :texture-2d))))
 
-(defmethod init-texture-src (view (src av:capture) texture-src)
-  (declare (ignore view texture-src))
+(defmethod init-texture-device (view (device av:capture) texture-device)
+  (declare (ignore view texture-device))
   (let* ((texture (gl:gen-texture))
 	 (filter :linear)
 	 (wrap :clamp-to-edge))
@@ -235,37 +237,44 @@
     (gl:tex-parameter :texture-2d :texture-wrap-s wrap)
     (gl:tex-parameter :texture-2d :texture-wrap-t wrap)
     (gl:bind-texture :texture-2d 0)
-    (list :src src
+    (list device
 	  :release-p nil
 	  :filter filter :wrap wrap :flip-p nil
 	  :tex-id texture
 	  :target :texture-2d)))
 
-(defmethod update-texture-src (view (src av:capture) texture-src)
-  (declare (ignore view src))
+(defmethod update-texture-device (view (device av:capture) texture-device)
+  (declare (ignore view))
   (gl:bind-texture (tex :target) (tex :tex-id))
-  (av:with-media-data (src width height data)
+  (av:with-media-data (device width height data)
     (gl:tex-image-2d :texture-2d 0 :rgba8 width height 0 :rgba :unsigned-byte data)))
 
-(defmethod destroy-texture-src (view (src av:capture) texture-src)
+(defmethod release-texture-device (view (device av:capture) texture-device)
   (declare (ignore view))
-  (when (getf texture-src :release-p)
-    (av:stop-capture src)
-    (av:release-capture src))
+  (when (tex :release-p)
+    (av:stop-capture device)
+    (av:release-capture device))
   (gl:delete-texture (tex :tex-id)))
 
 ;;; 
 ;;; syphon
 ;;; 
-(defmethod init-texture-src (view (src (eql :syphon)) texture-src)
-  (list :src :syphon :filter :linear :wrap :clamp-to-edge :flip-p nil
-	:app (tex :app)
-	:name (tex :name)
-	:size (list 0 0)
-	:syphon-client nil
-	:target :texture-rectangle))
+(defmethod init-texture-device (view (device (eql :syphon)) texture-device)
+  (flet ((parse-src (name)
+	   (let* ((pos (position #\: name))
+		  (app (subseq name 0 pos))
+		  (name (if pos (subseq name (+ pos 1)) nil)))
+	     (list app (if (zerop (length name)) nil name)))))
+    (let* ((dict (parse-src (tex :src))))
+      (list device
+	    :app (car dict)
+	    :name (second dict)
+	    :size (list 0 0)
+	    :syphon-client nil
+	    :target :texture-rectangle))))
 
-(defmethod update-texture-src (view (src (eql :syphon)) texture-src)
+(defmethod update-texture-device (view (device (eql :syphon)) texture-device)
+  (declare (ignore device))
   (unless (tex :syphon-client)
     (when-let* ((descriptor (syphon:get-server (tex :app) (tex :name)))
 		(client (syphon:make-client descriptor (cgl-context view))))
@@ -281,20 +290,20 @@
 	       (name (syphon:texture-name image)))
 	  (unless (and (= w (car orig-size))
 		       (= h (second orig-size)))
-	    (format t "~&<Syphon-~s~@[|~s~]> image-size: ~a, ~a image-name: ~a~%"
-		    (tex :app-key) (tex :name-key) w h name)
+	    (format t "~&<Syphon-\"~a~@[:~a~]\"> image-size: ~a, ~a image-name: ~a~%"
+		    (tex :app) (tex :name) w h name)
 	    (setf (tex :size) (list w h)))
 	  (gl:bind-texture :texture-rectangle name))))))
 
-(defmethod destroy-texture-src (view (src (eql :syphon)) texture-src)
-  (declare (ignore view src))
+(defmethod release-texture-device (view (device (eql :syphon)) texture-device)
+  (declare (ignore view device))
   (when-let ((syphon (tex :syphon-client)))
     (syphon:stop-client syphon)
     (ns:release syphon)))
 
 ;;; simple-array singloe-float
-(defmethod init-texture-src (view (src sb-kernel::simple-array-single-float) texture-src)
-  (declare (ignore view texture-src))
+(defmethod init-texture-device (view (device sb-kernel::simple-array-single-float) texture-device)
+  (declare (ignore view texture-device))
   (let* ((texture (gl:gen-texture)))
     (gl:bind-texture :texture-rectangle texture)
     (gl:tex-parameter :texture-rectangle :texture-min-filter :nearest)
@@ -302,22 +311,22 @@
     (gl:tex-parameter :texture-rectangle :texture-wrap-s :clamp-to-edge)
     (gl:tex-parameter :texture-rectangle :texture-wrap-t :clamp-to-edge)
     (gl:bind-texture :texture-rectangle 0)
-    (list :src src :filter :nearest :wrap :clamp-to-edge :flip-p nil
-	  :tex-id texture :target :texture-rectangle)))
+    (list device
+	  :filter :nearest :wrap :clamp-to-edge :flip-p nil :tex-id texture :target :texture-rectangle)))
 
-(defmethod update-texture-src (view (src sb-kernel::simple-array-single-float) texture-src)
+(defmethod update-texture-device (view (device sb-kernel::simple-array-single-float) texture-device)
   (declare (ignore view))
   (gl:bind-texture :texture-rectangle (tex :tex-id))
-  (cffi:with-pointer-to-vector-data (ptr src)
-    (gl:tex-image-2d :texture-rectangle 0 :r32f (length src) 1 0 :red :float ptr)))
+  (cffi:with-pointer-to-vector-data (ptr device)
+    (gl:tex-image-2d :texture-rectangle 0 :r32f (length device) 1 0 :red :float ptr)))
 
-(defmethod destroy-texture-src (view (src sb-kernel::simple-array-single-float) texture-src)
-  (declare (ignore view src))
+(defmethod release-texture-device (view (device sb-kernel::simple-array-single-float) texture-device)
+  (declare (ignore view device))
   (gl:delete-texture (tex :tex-id)))
 
 ;;; Buffer of SuperCollider
-(defmethod init-texture-src (view (src sc::buffer) texture-src)
-  (declare (ignore view texture-src))
+(defmethod init-texture-device (view (device sc::buffer) texture-device)
+  (declare (ignore view texture-device))
   (let* ((texture (gl:gen-texture)))
     (gl:bind-texture :texture-rectangle texture)
     (gl:tex-parameter :texture-rectangle :texture-min-filter :nearest)
@@ -325,29 +334,29 @@
     (gl:tex-parameter :texture-rectangle :texture-wrap-s :clamp-to-edge)
     (gl:tex-parameter :texture-rectangle :texture-wrap-t :clamp-to-edge)
     (gl:bind-texture :texture-rectangle 0)
-    (list :src src :filter :nearest :wrap :clamp-to-edge :flip-p nil
-	  :tex-id texture :target :texture-rectangle)))
+    (list device
+	  :filter :nearest :wrap :clamp-to-edge :flip-p nil :tex-id texture :target :texture-rectangle)))
 
-(defmethod update-texture-src (view (src sc::buffer) texture-src)
+(defmethod update-texture-device (view (device sc::buffer) texture-device)
   (declare (ignore view))
   (gl:bind-texture :texture-rectangle (tex :tex-id))
   (cffi:with-foreign-slots ((sc::snd-bufs) (sc::sc-world sc::*s*) (:struct sc::world))
     (let* ((data (getf (cffi:mem-aref sc::snd-bufs '(:struct sc::snd-buf)
-				      (sc::bufnum src)) 'sc::data)))
-      (gl:tex-image-2d :texture-rectangle 0 :r32f (min 44100 (* (sc:chanls src) (sc:frames src)))
+				      (sc::bufnum device)) 'sc::data)))
+      (gl:tex-image-2d :texture-rectangle 0 :r32f (min 44100 (* (sc:chanls device) (sc:frames device)))
 		       1 0 :red :float data))))
 
-(defmethod destroy-texture-src (view (src sc::buffer) texture-src)
-  (declare (ignore view src))
+(defmethod release-texture-device (view (device sc::buffer) texture-device)
+  (declare (ignore view device))
   (gl:delete-texture (tex :tex-id)))
 
 ;; fbo
-(defmethod init-texture-src (view (src (eql :fbo)) texture-src)
+(defmethod init-texture-device (view (device (eql :fbo)) texture-device)
   (let* ((width (width view))
 	 (height (height view))
 	 (texture (gl:gen-texture))
 	 (fbo nil)
-	 (canvas (make-instance (tex :class) :width width :height height :camera (camera view))))
+	 (canvas (make-instance (tex :src) :width width :height height :camera (camera view))))
     (unwind-protect (progn
 		      (gl:bind-texture :texture-2d texture)
 		      (gl:tex-image-2d :texture-2d 0 :rgba8 width height 0 :rgba
@@ -362,10 +371,12 @@
 			(gfx::init canvas)))
       (gl:bind-framebuffer :framebuffer
 			   (gfx::framebuffer (if (gl-canvas view) (fbo view) (gfx::output-fbo (fbo view))))))
-    (list :src src :filter :linear :wrap :clamp-to-edge :flip-p nil 
+    (list device
+	  :filter :linear :wrap :clamp-to-edge :flip-p nil 
 	  :tex-id texture :target :texture-2d :fbo fbo :gl-canvas canvas)))
 
-(defmethod update-texture-src (view (src (eql :fbo)) texture-src)
+(defmethod update-texture-device (view (device (eql :fbo)) texture-device)
+  (declare (ignore device))
   (let* ((fbo (tex :fbo)))
     (unwind-protect
   	 (let* ((width (width view))
@@ -385,22 +396,22 @@
       (gl:bind-framebuffer :framebuffer
   			   (gfx::framebuffer (if (gl-canvas view) (fbo view) (gfx::output-fbo (fbo view))))))))
 
-(defmethod destroy-texture-src (view (src (eql :fbo)) texture-src)
-  (declare (ignore view src))
+(defmethod release-texture-device (view (device (eql :fbo)) texture-device)
+  (declare (ignore view device))
   (unwind-protect (progn
   		      (gfx:with-fbo ((tex :fbo))
   			(gfx:release (tex :gl-canvas)))
-  		      (gfx:release-context (getf texture-src :gl-canvas))
-  		      (gfx:release-fbo (getf texture-src :fbo))
+  		      (gfx:release-context (tex :gl-canvas))
+  		      (gfx:release-fbo (tex :fbo))
   		      (gl:delete-texture (tex :tex-id)))
       (gl:bind-framebuffer :framebuffer
   			   (gfx::framebuffer (if (gl-canvas view) (fbo view) (gfx::output-fbo (fbo view)))))))
 
 
 ;;; iosurface
-(defmethod init-texture-src (view (src (eql :io-surface)) texture-src)
-  (declare (ignore src))
-  (let* ((core-profile (if (not (find :core-profile texture-src)) t
+(defmethod init-texture-device (view (device (eql :io-surface)) texture-device)
+  (declare (ignore device))
+  (let* ((core-profile (if (not (find :core-profile texture-device)) t
 			 (tex :core-profile)))
 	 (texture (gl:gen-texture))
 	 (fixed-size (tex :size))
@@ -408,7 +419,7 @@
 	 (height (if fixed-size (second (tex :size)) (height view)))
 	 (renderer (make-instance 'renderer :width width :height height :core-profile core-profile))
 	 (use-mouse (tex :use-mouse))
-	 (gl-canvas (make-instance (tex :class) :width width :height height
+	 (gl-canvas (make-instance (tex :src) :width width :height height
 				   :camera (when use-mouse (camera view)))))
     (resize-framebuffer renderer width height)
     (let* ((io-surface (io-surface:lookup (io-surface:id (iosurface renderer)))))
@@ -420,7 +431,8 @@
 				   :rgba width height :bgra
 				   :unsigned-int-8-8-8-8-rev io-surface 0)
       (gl:bind-texture :texture-rectangle 0)
-      (list :src src :filter :linear :wrap :clamp-to-edge :flip-p nil
+      (list device
+	    :filter :linear :wrap :clamp-to-edge :flip-p nil
 	    :tex-id texture
 	    :target :texture-rectangle
 	    :renderer renderer
@@ -428,8 +440,8 @@
 	    :io-surface io-surface
 	    :fixed-size fixed-size))))
 
-(defmethod update-texture-src (view (src (eql :io-surface)) texture-src)
-  (declare (ignore src))
+(defmethod update-texture-device (view (device (eql :io-surface)) texture-device)
+  (declare (ignore device))
   (let* ((width (width view))
   	 (height (height view))
   	 (renderer (tex :renderer))
@@ -445,7 +457,7 @@
 	(gl:bind-texture :texture-rectangle (tex :tex-id))
 	(cgl:tex-image-io-surface-2d (cgl-context view) :texture-rectangle
 				     :rgba width height :bgra
-				     :unsigned-int-8-8-8-8-rev (getf texture-src :io-surface) 0)
+				     :unsigned-int-8-8-8-8-rev (tex :io-surface) 0)
 	(gl:bind-texture :texture-rectangle 0)))
     (gl:bind-texture :texture-rectangle (tex :tex-id))
     (with-cgl-context ((cgl-context renderer))
@@ -453,8 +465,8 @@
 	(gfx:draw canvas))
       (gl:flush))))
 
-(defmethod destroy-texture-src (view (src (eql :io-surface)) texture-src)
-  (declare (ignore view src))
+(defmethod release-texture-device (view (device (eql :io-surface)) texture-device)
+  (declare (ignore view device))
   (let* ((renderer (tex :renderer))
   	 (canvas (tex :gl-canvas)))
     (with-cgl-context ((cgl-context renderer))
@@ -462,5 +474,6 @@
 	(gfx:release canvas))
       (gfx:release-context canvas))
     (destroy renderer)
-    (ns:release (tex :io-surface))))
+    (ns:release (tex :io-surface))
+    (gl:delete-texture (tex :tex-id))))
 

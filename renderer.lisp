@@ -94,10 +94,9 @@
    (reinit-time
     :initarg :reinit-time
     :accessor reinit-time)
-   (texture-srcs
-    :initarg :texture-srcs
+   (texture-devices
     :initform nil
-    :accessor texture-srcs)
+    :accessor texture-devices)
    (tex-image-table
     :initform (make-hash-table :test #'equal)
     :reader tex-image-table
@@ -123,22 +122,22 @@
 ;;; for texture source
 ;;;
 
-(defgeneric init-texture-src (view src texture-src)
-  (:method (view src texture-src)
-    (error "You should implementation this parse method ~a ~a" src texture-src)))
+(defgeneric init-texture-device (view device texture-device)
+  (:method (view device texture-device)
+    (error "You should implementation this parse method ~a ~a" device texture-device)))
 
-(defgeneric update-texture-src (view src texture-src))
+(defgeneric update-texture-device (view device texture-device))
 
-(defgeneric destroy-texture-src (view src texture-src))
+(defgeneric release-texture-device (view device texture-device))
 
 
 ;;; ===========================================================================
-(defun texture-types (texture-srcs)
-  (mapcar (lambda (src)
-	    (ecase (getf src :target)
+(defun texture-types (texture-devices)
+  (mapcar (lambda (device)
+	    (ecase (getf (cdr device) :target)
 	      (:texture-2d :sampler-2d)
 	      (:texture-rectangle :sampler-2d-rect)))
-	  texture-srcs))
+	  texture-devices))
 
 (defun reinit-shader (renderer new-shader)
   (loop for (name shader-spec) on (gfx::shaders renderer) by #'cddr
@@ -159,15 +158,15 @@
     (when scene-size
       (resize-framebuffer renderer (car scene-size) (second scene-size)))
     (reinit-shader renderer (getf options :shader))
-    (loop for src in (texture-srcs renderer)
-	  do (destroy-texture-src renderer (getf src :src) src))
-    (let* ((srcs (getf options :textures)))
-      (setf (texture-srcs renderer) (loop for src in srcs
-					  collect (let ((src (alexandria:ensure-list src)))
-						    (init-texture-src renderer (car src) (cdr src)))))
-      (when (texture-srcs renderer)
+    (loop for device in (texture-devices renderer)
+	  do (release-texture-device renderer (car device) (cdr device)))
+    (let* ((devices (getf options :textures)))
+      (setf (texture-devices renderer) (loop for device in devices
+					  collect (let ((device (alexandria:ensure-list device)))
+						    (init-texture-device renderer (car device) (cdr device)))))
+      (when (texture-devices renderer)
 	(let* ((pipeline (gethash (shader renderer) gfx::*all-pipeline-table*))
-	       (texture-types (texture-types (texture-srcs renderer))))
+	       (texture-types (texture-types (texture-devices renderer))))
 	  (unless (equal (mapcar #'second (subseq (gfx::%pipeline-uniforms pipeline) 0 (length texture-types)))
 			 texture-types)
 	    (loop for tex in texture-types
@@ -230,27 +229,27 @@
 	(gl:clear :color-buffer-bit :depth-buffer-bit)
 	(loop for unit in '(:texture0 :texture1 :texture2 :texture3
 			    :texture4 :texture5 :texture6 :texture7)
-	      for src in (texture-srcs renderer)
+	      for device in (texture-devices renderer)
 	      do (gl:active-texture unit)
-		 (update-texture-src renderer (getf src :src) src))
+		 (update-texture-device renderer (car device) (cdr device)))
 	(gl:enable :depth-test)
 	(draw-shader renderer w h)
 	(gl:disable :depth-test))
       (gfx:with-fbo ((gfx::output-fbo (fbo renderer)))
 	(loop for unit in '(:texture0 :texture1 :texture2 :texture3
 			    :texture4 :texture5 :texture6 :texture7)
-	      for src in (texture-srcs renderer)
+	      for device in (texture-devices renderer)
 	      do (gl:active-texture unit)
-		 (case (getf src :src)
+		 (case (car device)
 		   (:previous-frame
 		    (gl:copy-tex-image-2d :texture-2d 0 :rgba8 0 0 w h 0)))
-		 (gl:bind-texture (getf src :target) 0)))) 
+		 (gl:bind-texture (getf (cdr device) :target) 0)))) 
     (gl:flush)))
 
 (defmethod destroy ((renderer visual-renderer))
   (with-cgl-context ((cgl-context renderer))
-    (loop for src in (texture-srcs renderer)
-	  do (destroy-texture-src renderer (getf src :src) src))
+    (loop for device in (texture-devices renderer)
+	  do (release-texture-device renderer (car device) (cdr device)))
     (call-next-method)))
 
 
