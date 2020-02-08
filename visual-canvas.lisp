@@ -137,9 +137,10 @@
 
 
 (defun convert-size-to-backing (visual-canvas)
-  (let* ((best-size (ns:objc-stret ns:size visual-canvas "convertSizeToBacking:"
-				   (:struct ns:size) (ns:make-size (ns:width visual-canvas)
-								   (ns:height visual-canvas)))))
+  (let* ((best-size (ns:objc visual-canvas "convertSizeToBacking:"
+			     (:struct ns:size) (ns:make-size (ns:width visual-canvas)
+							     (ns:height visual-canvas))
+			     (:struct ns:size))))
     (list (ns:size-width best-size) (ns:size-height best-size))))
 
 (defmethod ns:reshape ((view visual-canvas))
