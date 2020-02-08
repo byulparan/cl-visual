@@ -221,26 +221,22 @@
 ;;;
 (defmethod init-texture-device (view (device av:player) texture-device)
   (declare (ignore view texture-device))
-  (let* ((texture (gl:gen-texture)))
-    (gl:bind-texture :texture-2d texture)
-    (gl:tex-parameter :texture-2d :texture-mag-filter (tex :filter))
-    (gl:tex-parameter :texture-2d :texture-min-filter (tex :filter))
-    (gl:tex-parameter :texture-2d :texture-wrap-s (tex :wrap))
-    (gl:tex-parameter :texture-2d :texture-wrap-t (tex :wrap))
-    (gl:bind-texture :texture-2d 0)
+  (let* ((texture-cache (core-video:make-texture-cache (cgl-context view)
+						       (pixel-format view))))
     (list device
-	  :filter :linear :wrap :clamp-to-edge :flip-p nil :auto-release-p nil
-	  :tex-id texture :target :texture-2d)))
+	  :resize-fn (tex :resize-fn)
+	  :texture-cache texture-cache
+	  :target :texture-rectangle)))
 
 (defmethod update-texture-device (view (device av:player) texture-device)
   (declare (ignore view))
-  (gl:bind-texture (tex :target) (tex :tex-id))
-  (av:with-media-data (device width height data)
-    (gl:tex-image-2d :texture-2d 0 :rgba8 width height 0 :rgba :unsigned-byte data)))
+  (av:with-texture-cache (device (tex :texture-cache) width height)
+    (when-let ((resize-fn (tex :resize-fn)))
+      (funcall resize-fn width height))))
 
 (defmethod release-texture-device (view (device av:player) texture-device)
   (declare (ignore view device))
-  (gl:delete-texture (tex :tex-id)))
+  (core-video:release-texture-cache (tex :texture-cache)))
 
 ;;; 
 ;;; av-capture
@@ -250,51 +246,37 @@
   (let* ((index (tex :src)))
     (unless index (setf index 0))
     (let* ((capture (av:make-camera-capture index))
-	   (texture (gl:gen-texture))
-	   (filter :linear)
-	   (wrap :clamp-to-edge))
-      (gl:bind-texture :texture-2d texture)
-      (gl:tex-parameter :texture-2d :texture-mag-filter filter)
-      (gl:tex-parameter :texture-2d :texture-min-filter filter)
-      (gl:tex-parameter :texture-2d :texture-wrap-s wrap)
-      (gl:tex-parameter :texture-2d :texture-wrap-t wrap)
-      (gl:bind-texture :texture-2d 0)
+	   (texture-cache (core-video:make-texture-cache (cgl-context view)
+							 (pixel-format view))))
       (av:start-capture capture)
       (list capture
 	    :release-p t
-	    :filter filter  :wrap wrap :flip-p nil
-	    :tex-id texture
-	    :target :texture-2d))))
+	    :resize-fn (tex :resize-fn)
+	    :texture-cache texture-cache
+	    :target :texture-rectangle))))
 
 (defmethod init-texture-device (view (device av:capture) texture-device)
   (declare (ignore view texture-device))
-  (let* ((texture (gl:gen-texture))
-	 (filter :linear)
-	 (wrap :clamp-to-edge))
-    (gl:bind-texture :texture-2d texture)
-    (gl:tex-parameter :texture-2d :texture-mag-filter filter)
-    (gl:tex-parameter :texture-2d :texture-min-filter filter)
-    (gl:tex-parameter :texture-2d :texture-wrap-s wrap)
-    (gl:tex-parameter :texture-2d :texture-wrap-t wrap)
-    (gl:bind-texture :texture-2d 0)
+  (let* ((texture-cache (core-video:make-texture-cache (cgl-context view)
+						       (pixel-format view))))
     (list device
 	  :release-p nil
-	  :filter filter :wrap wrap :flip-p nil
-	  :tex-id texture
-	  :target :texture-2d)))
+	  :resize-fn (tex :resize-fn)
+	  :texture-cache texture-cache
+	  :target :texture-rectangle)))
 
 (defmethod update-texture-device (view (device av:capture) texture-device)
   (declare (ignore view))
-  (gl:bind-texture (tex :target) (tex :tex-id))
-  (av:with-media-data (device width height data)
-    (gl:tex-image-2d :texture-2d 0 :rgba8 width height 0 :rgba :unsigned-byte data)))
+  (av:with-texture-cache (device (tex :texture-cache) width height)
+    (when-let ((resize-fn (tex :resize-fn)))
+      (funcall resize-fn width height))))
 
 (defmethod release-texture-device (view (device av:capture) texture-device)
   (declare (ignore view))
   (when (tex :release-p)
     (av:stop-capture device)
     (av:release-capture device))
-  (gl:delete-texture (tex :tex-id)))
+  (core-video:release-texture-cache (tex :texture-cache)))
 
 ;;; 
 ;;; syphon
@@ -310,6 +292,7 @@
 	    :app (car dict)
 	    :name (second dict)
 	    :size (list 0 0)
+	    :resize-fn (tex :resize-fn)
 	    :syphon-client nil
 	    :target :texture-rectangle))))
 
@@ -330,6 +313,8 @@
 	       (name (syphon:texture-name image)))
 	  (unless (and (= w (car orig-size))
 		       (= h (second orig-size)))
+	    (when-let ((resize-fn (tex :resize-fn)))
+	      (funcall resize-fn w h))
 	    (format t "~&<Syphon-\"~a~@[:~a~]\"> image-size: ~a, ~a image-name: ~a~%"
 		    (tex :app) (tex :name) w h name)
 	    (setf (tex :size) (list w h)))
