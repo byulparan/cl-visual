@@ -126,7 +126,7 @@
 				  :scope-buffer (cffi:foreign-alloc :float :count (* 4096 2))
 				  :scope-synth nil)))
   (let* ((group (sc:make-group :pos :tail :to 0)))
-    (sc:proxy :shadertoy-volumes
+    (sc:proxy :cl-visual-volumes
       (progn
   	(sc:out.kr *ivolume-index* (sc:a2k.kr (sc:lag.ar (abs (sc:mix (sc:in.ar 0 2))) .1)))
   	(dotimes (i (1- *num-ivolume*))
@@ -334,7 +334,7 @@
     	  ((ns:shift-p event) (gfx:track-mouse-pan camera (- x) y .1))
     	  (t (gfx:track-mouse-spin camera x (- y) .1)))))
 
-(defun gfx::reset-shadertoy-camera (&key (eye-x 0.0) (eye-y 0.0) (eye-z 5.0)
+(defun gfx::reset-visual-camera (&key (eye-x 0.0) (eye-y 0.0) (eye-z 5.0)
 				      (center-x 0.0) (center-y 0.0) (center-z 0.0))
   (when *visual-canvas*
     (gfx:reset-camera (camera (renderer *visual-canvas*))
@@ -344,6 +344,6 @@
 
 (gfx::clear-pipeline)
 
-(export '(gfx::define-shader gfx::start-shader gfx::clear-pipeline gfx::reset-shadertoy-camera) :gfx)
+(export '(gfx::define-shader gfx::start-shader gfx::clear-pipeline gfx::reset-visual-camera) :gfx)
 
 

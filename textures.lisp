@@ -8,7 +8,7 @@
 ;;; 
 (defun initialize-audio-frame (frame-bus)
   (setf (getf (audio-data *visual-canvas*) :scope-synth)
-    (sc:proxy :shadertoy-audio-frame
+    (sc:proxy :cl-visual-audio-frame
       (sc:with-controls ((bus frame-bus))
 	(let* ((audio-data (audio-data *visual-canvas*))
 	       (wavebuf (getf audio-data :wavebuf))
