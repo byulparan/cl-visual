@@ -235,28 +235,3 @@
 	  do (release-texture-device renderer (car device) (cdr device)))
     (call-next-method)))
 
-(defmacro gfx::define-shader (name &body body)
-  (let ((name (ensure-list name))
-	(ichannel-target (make-list 8 :initial-element :sampler-2d-rect)))
-    (loop for (index target) in (second name)
-	  do (setf (nth index ichannel-target) target))
-    `(gfx:defpipeline (,(car name) :version 330)
-	 (,@(loop for i from 0 below 8
-		  collect (list (intern (format nil "ICHANNEL~d" i)) (nth i ichannel-target)))
-	  (iglobal-time :float)
-	  (itime :float)
-	  ,@(loop for i from 0 below 6
-		  collect (list (intern (format nil "IVOLUME~d" i)) :float))
-	  ,@(loop for i from 0 below 10
-		  collect (list (intern (format nil "ICONTROL~d" i)) :float))
-	  (iresolution :vec2)
-	  (camera :vec3)
-	  (lookat :vec3)
-	  (projection-matrix :mat4)
-	  (modelview-matrix :mat4))
-       (:vertex ((pos :vec2))
-		(values
-		 (v! pos 0.0 1.0)
-		 pos))
-       (:fragment ((vfuv :vec2))
-		  (progn ,@body)))))

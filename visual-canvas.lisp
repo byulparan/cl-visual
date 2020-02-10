@@ -244,6 +244,9 @@
   	(when (info view)
   	  (draw-fps-info (fps-info view) view-w view-h w h))))))
 
+
+(defvar *last-command* nil)
+
 (defmethod ns:release ((view visual-canvas))
   (release (renderer view))
   (ns:release (iosurface view))
@@ -256,8 +259,8 @@
     (syphon:stop-server syphon)
     (ns:release syphon))
   (sc:free (audio-group view))
-  (setf *visual-canvas* nil))
-
+  (setf *visual-canvas* nil)
+  (setf *last-command* nil))
 
 (defmacro gfx::start-shader (shader &key textures
 				      (reinit-time (let ((cur-time (gfx:get-internal-seconds)))
@@ -272,6 +275,9 @@
 				      gl-canvas)
   (let* ((window-name (format nil "~a" shader)))
     (assert (gethash shader gfx::*all-pipeline-table*) nil "can't find \"~a\" shader" shader)
+    (setf *last-command* (list :textures textures :reinit-time reinit-time :size size
+			       :scene-ratio scene-ratio :user-fn user-fn :syphon syphon :output-filter output-filter
+			       :retina retina :info info :gl-canvas gl-canvas))
     `(if *visual-canvas* (progn (send-message (mailbox *visual-canvas*)
 					      (list :textures ,textures
 						    :shader ',shader
@@ -323,6 +329,40 @@
 	   (setf *visual-canvas* canvas)
 	   (ns:window-show window))))))
 
+
+(defmacro gfx::define-shader (name &body body)
+  (let ((name (ensure-list name))
+	(ichannel-target (make-list 8 :initial-element :sampler-2d-rect)))
+    (loop for (index target) in (second name)
+	  do (setf (nth index ichannel-target) target))
+    `(progn
+       (gfx:defpipeline (,(car name) :version 330)
+	   (,@(loop for i from 0 below 8
+		    collect (list (intern (format nil "ICHANNEL~d" i)) (nth i ichannel-target)))
+	    (iglobal-time :float)
+	    (itime :float)
+	    ,@(loop for i from 0 below 6
+		    collect (list (intern (format nil "IVOLUME~d" i)) :float))
+	    ,@(loop for i from 0 below 10
+		    collect (list (intern (format nil "ICONTROL~d" i)) :float))
+	    (iresolution :vec2)
+	    (camera :vec3)
+	    (lookat :vec3)
+	    (projection-matrix :mat4)
+	    (modelview-matrix :mat4))
+	 (:vertex ((pos :vec2))
+		  (values
+		   (v! pos 0.0 1.0)
+		   pos))
+	 (:fragment ((vfuv :vec2))
+		    (progn ,@body)))
+       ;; reinterpret ======================================================================
+       ;; (when (and *visual-canvas* (eql ',(car name) (shader (renderer *visual-canvas*))))
+       ;; 	 (gfx:start-shader ,(car name) ,@*last-command*)
+       ;; 	 (format t "~&reinterpret shader: ~a~%" ',(car name)))
+       ',(car name))))
+
+
 (defmethod ns:mouse-wheel ((view visual-canvas) event localtion-x location-y)
   (declare (ignore location-x location-y))
   (let* ((x (float (ns:objc event "deltaX" :double) 1.0))
@@ -341,6 +381,7 @@
 		      :eye-x eye-x :eye-y eye-y :eye-z eye-z
 		      :center-x center-x :center-y center-y :center-z center-z)
     t))
+
 
 (gfx::clear-pipeline)
 
