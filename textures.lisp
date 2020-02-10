@@ -70,12 +70,6 @@
 (defmethod init-texture-device (view (device (eql :screen-frame)) texture-device)
   (let* ((rect (tex :rect))
 	 (texture (gl:gen-texture)))
-    (gl:bind-texture :texture-2d texture)
-    (gl:tex-parameter :texture-2d :texture-mag-filter :linear)
-    (gl:tex-parameter :texture-2d :texture-min-filter :linear)
-    (gl:tex-parameter :texture-2d :texture-wrap-s (tex :wrap))
-    (gl:tex-parameter :texture-2d :texture-wrap-t (tex :wrap))
-    (gl:bind-texture :texture-2d 0)
     (unless rect (setf rect (list 0 0 200 200)))
     (destructuring-bind (x y w h)
 	rect
@@ -84,14 +78,14 @@
 	    :wrap (if-let ((wrap (tex :wrap))) wrap :repeat)
 	    :rect (ns:make-rect x y w h)
 	    :tex-id texture
-	    :target :texture-2d))))
+	    :target :texture-rectangle))))
 
 (defmethod update-texture-device (view (device (eql :screen-frame)) texture-device)
   (declare (ignore view device))
   (let* ((rect (tex :rect))
   	 (image (cg:image-from-screen rect)))
     (gl:bind-texture (tex :target) (tex :tex-id))
-    (gl:tex-image-2d :texture-2d 0 :rgba8 (cg:image-width image) (cg:image-height image) 0
+    (gl:tex-image-2d :texture-rectangle 0 :rgba8 (cg:image-width image) (cg:image-height image) 0
 		     :rgba :unsigned-byte (cg:image-bitmap-data image))
     (cg:release-image image)))
 
@@ -184,15 +178,9 @@
   (let* ((texture (gl:gen-texture))
 	 (context (tex :src))
 	 (wrap (tex :wrap)))
-      (gl:bind-texture :texture-2d texture)
-      (gl:tex-parameter :texture-2d :texture-mag-filter :linear)
-      (gl:tex-parameter :texture-2d :texture-min-filter :linear)
-      (gl:tex-parameter :texture-2d :texture-wrap-s (if wrap wrap :clamp-to-edge))
-      (gl:tex-parameter :texture-2d :texture-wrap-t (if wrap wrap :clamp-to-edge))
-      (gl:bind-texture :texture-2d 0)
       (list device
 	    :src context
-	    :tex-id texture :target :texture-2d)))
+	    :tex-id texture :target :texture-rectangle)))
 
 (defmethod update-texture-device (view (device (eql :bitmap-context)) texture-device)
   (declare (ignore view device))
@@ -200,8 +188,8 @@
 	 (w (cg:bitmap-width context))
 	 (h (cg:bitmap-height context))
 	 (data (cg:bitmap-data context)))
-    (gl:bind-texture :texture-2d (tex :tex-id))
-    (gl:tex-image-2d :texture-2d 0 :rgba8 w h 0 :rgba :unsigned-byte data)))
+    (gl:bind-texture :texture-rectangle (tex :tex-id))
+    (gl:tex-image-2d :texture-rectangle 0 :rgba8 w h 0 :rgba :unsigned-byte data)))
 
 (defmethod release-texture-device (view (device (eql :bitmap-context)) texture-device)
   (declare (ignore view device))
