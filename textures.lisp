@@ -36,12 +36,17 @@
   (let* ((frame-bus (tex :frame-bus))
 	 (synth (getf (audio-data view) :scope-synth))
 	 (texture (gl:gen-texture)))
+    (gl:bind-texture  (tex :target) texture)
+    (gl:tex-parameter (tex :target) :texture-mag-filter :linear)
+    (gl:tex-parameter (tex :target) :texture-min-filter :linear)
+    (gl:tex-parameter (tex :target) :texture-wrap-s :clamp-to-edge)
+    (gl:tex-parameter (tex :target) :texture-wrap-t :clamp-to-edge)
+    (gl:bind-texture  (tex :target) 0)
     (setf frame-bus (if frame-bus frame-bus 0))
     (if synth (sc::ctrl synth :bus frame-bus)
       (initialize-audio-frame frame-bus))    
     (list device
-	  :context view :filter :linear :wrap :clamp-to-edge :flip-p nil
-	  :tex-id texture :target :texture-2d)))
+	  :context view :tex-id texture :target (tex :target))))
 
 (defmethod update-texture-device (view (device (eql :audio-frame)) texture-device)
   (declare (ignore view device))
@@ -55,8 +60,8 @@
 	(cffi:foreign-funcall "memcpy" :pointer (cffi:inc-pointer scope-buffer (* 4096 4))
 				       :pointer wavebuf-ptr
 				       :sizet (* 4096 4))))
-    (gl:bind-texture :texture-2d (tex :tex-id))
-    (gl:tex-image-2d :texture-2d 0 :r32f 4096 2 0 :red :float scope-buffer)))
+    (gl:bind-texture (tex :target) (tex :tex-id))
+    (gl:tex-image-2d (tex :target) 0 :r32f 4096 2 0 :red :float scope-buffer)))
 
 (defmethod release-texture-device (view (device (eql :audio-frame)) texture-device)
   (declare (ignore view device texture-device))
@@ -70,22 +75,26 @@
 (defmethod init-texture-device (view (device (eql :screen-frame)) texture-device)
   (let* ((rect (tex :rect))
 	 (texture (gl:gen-texture)))
+    (gl:bind-texture  (tex :target) texture)
+    (gl:tex-parameter (tex :target) :texture-mag-filter :linear)
+    (gl:tex-parameter (tex :target) :texture-min-filter :linear)
+    (gl:tex-parameter (tex :target) :texture-wrap-s :clamp-to-edge)
+    (gl:tex-parameter (tex :target) :texture-wrap-t :clamp-to-edge)
+    (gl:bind-texture  (tex :target) 0)
     (unless rect (setf rect (list 0 0 200 200)))
     (destructuring-bind (x y w h)
 	rect
       (list device
-	    :filter (if-let ((filter (tex :filter))) filter :linear)
-	    :wrap (if-let ((wrap (tex :wrap))) wrap :repeat)
 	    :rect (ns:make-rect x y w h)
 	    :tex-id texture
-	    :target :texture-rectangle))))
+	    :target (tex :target)))))
 
 (defmethod update-texture-device (view (device (eql :screen-frame)) texture-device)
   (declare (ignore view device))
   (let* ((rect (tex :rect))
   	 (image (cg:image-from-screen rect)))
     (gl:bind-texture (tex :target) (tex :tex-id))
-    (gl:tex-image-2d :texture-rectangle 0 :rgba8 (cg:image-width image) (cg:image-height image) 0
+    (gl:tex-image-2d (tex :target) 0 :rgba8 (cg:image-width image) (cg:image-height image) 0
 		     :rgba :unsigned-byte (cg:image-bitmap-data image))
     (cg:release-image image)))
 
@@ -97,16 +106,18 @@
 ;; previous frame
 (defmethod init-texture-device (view (device (eql :previous-frame)) texture-device)
   (declare (ignore view texture-device))
-  (let ((texture (gl:gen-texture))
-	(filter :linear)
-	(wrap :clamp-to-edge))
-    (list device
-	  :filter filter :wrap wrap :flip-p nil
-	  :tex-id texture :target :texture-rectangle)))
+  (let ((texture (gl:gen-texture)))
+    (gl:bind-texture  (tex :target) texture)
+    (gl:tex-parameter (tex :target) :texture-mag-filter :linear)
+    (gl:tex-parameter (tex :target) :texture-min-filter :linear)
+    (gl:tex-parameter (tex :target) :texture-wrap-s :clamp-to-edge)
+    (gl:tex-parameter (tex :target) :texture-wrap-t :clamp-to-edge)
+    (gl:bind-texture  (tex :target) 0)
+    (list device :tex-id texture :target (tex :target))))
 
 (defmethod update-texture-device (view (device (eql :previous-frame)) texture-device)
   (declare (ignore view device))
-  (gl:bind-texture :texture-rectangle (tex :tex-id)))
+  (gl:bind-texture (tex :target) (tex :tex-id)))
 
 (defmethod release-texture-device (view (device (eql :previous-frame)) texture-device)
   (declare (ignore view device))
@@ -116,15 +127,6 @@
 ;;; 
 ;;; image
 ;;;
-(defun parse-texture-options (options)
-  (let* ((filter (getf options :filter))
-	 (wrap (getf options :wrap))
-	 (flip-p (or (not (find :flip-p options))
-		     (getf options :flip-p))))
-    (list (if filter filter :mipmap)
-	  (if wrap wrap :repeat)
-	  flip-p)))
-
 (defmethod init-texture-device (view (device string) texture-device)
   (declare (ignore view))
   (let* ((full-path (uiop:truenamize device)))
@@ -146,23 +148,20 @@
 		   (8 (list :red :red))))
 	 (w (cg:image-width image))
 	 (h (cg:image-height image)))
-    (destructuring-bind (filter wrap flip-p)
-	(parse-texture-options texture-device)
-      (gl:bind-texture :texture-rectangle texture)
-      (gl:tex-image-2d :texture-rectangle 0 (first format) w h 0 (second format) :unsigned-byte
-		       (cg:image-bitmap-data image))
-      (gl:tex-parameter :texture-rectangle :texture-mag-filter :linear)
-      (gl:tex-parameter :texture-rectangle :texture-min-filter :linear)
-      (gl:tex-parameter :texture-rectangle :texture-wrap-s :clamp-to-edge)
-      (gl:tex-parameter :texture-rectangle :texture-wrap-t :clamp-to-edge)
-      (gl:bind-texture :texture-rectangle 0)
-      (list device
-	    :filter filter :wrap wrap :flip-p flip-p :tex-id texture :target :texture-rectangle))))
+    (gl:bind-texture (tex :target) texture)
+    (gl:tex-image-2d (tex :target) 0 (first format) w h 0 (second format) :unsigned-byte
+		     (cg:image-bitmap-data image))
+    (gl:tex-parameter (tex :target) :texture-mag-filter :linear)
+    (gl:tex-parameter (tex :target) :texture-min-filter :linear)
+    (gl:tex-parameter (tex :target) :texture-wrap-s :clamp-to-edge)
+    (gl:tex-parameter (tex :target) :texture-wrap-t :clamp-to-edge)
+    (gl:bind-texture  (tex :target) 0)
+    (list device :tex-id texture :target (tex :target))))
 
 
 (defmethod update-texture-device (view (device (eql :image)) texture-device)
   (declare (ignore view device))
-  (gl:bind-texture :texture-rectangle (tex :tex-id)))
+  (gl:bind-texture (tex :target) (tex :tex-id)))
 
 (defmethod release-texture-device (view (device (eql :image)) texture-device)
   (declare (ignore view device))
@@ -176,11 +175,16 @@
 (defmethod init-texture-device (view (device (eql :bitmap-context)) texture-device)
   (declare (ignore view))
   (let* ((texture (gl:gen-texture))
-	 (context (tex :src))
-	 (wrap (tex :wrap)))
-      (list device
-	    :src context
-	    :tex-id texture :target :texture-rectangle)))
+	 (context (tex :src)))
+    (gl:bind-texture (tex :target) texture)
+    (gl:tex-parameter (tex :target) :texture-mag-filter :linear)
+    (gl:tex-parameter (tex :target) :texture-min-filter :linear)
+    (gl:tex-parameter (tex :target) :texture-wrap-s :clamp-to-edge)
+    (gl:tex-parameter (tex :target) :texture-wrap-t :clamp-to-edge)
+    (gl:bind-texture  (tex :target) 0)
+    (list device
+	  :src context
+	  :tex-id texture :target (tex :target))))
 
 (defmethod update-texture-device (view (device (eql :bitmap-context)) texture-device)
   (declare (ignore view device))
@@ -188,8 +192,8 @@
 	 (w (cg:bitmap-width context))
 	 (h (cg:bitmap-height context))
 	 (data (cg:bitmap-data context)))
-    (gl:bind-texture :texture-rectangle (tex :tex-id))
-    (gl:tex-image-2d :texture-rectangle 0 :rgba8 w h 0 :rgba :unsigned-byte data)))
+    (gl:bind-texture (tex :target) (tex :tex-id))
+    (gl:tex-image-2d (tex :target) 0 :rgba8 w h 0 :rgba :unsigned-byte data)))
 
 (defmethod release-texture-device (view (device (eql :bitmap-context)) texture-device)
   (declare (ignore view device))
@@ -206,7 +210,7 @@
     (list device
 	  :resize-fn (tex :resize-fn)
 	  :texture-cache texture-cache
-	  :target :texture-rectangle)))
+	  :target (tex :target))))
 
 (defmethod update-texture-device (view (device av:player) texture-device)
   (declare (ignore view))
@@ -233,7 +237,7 @@
 	    :release-p t
 	    :resize-fn (tex :resize-fn)
 	    :texture-cache texture-cache
-	    :target :texture-rectangle))))
+	    :target (tex :target)))))
 
 (defmethod init-texture-device (view (device av:capture) texture-device)
   (declare (ignore view texture-device))
@@ -243,7 +247,7 @@
 	  :release-p nil
 	  :resize-fn (tex :resize-fn)
 	  :texture-cache texture-cache
-	  :target :texture-rectangle)))
+	  :target (tex :target))))
 
 (defmethod update-texture-device (view (device av:capture) texture-device)
   (declare (ignore view))
@@ -274,7 +278,7 @@
 	    :size (list 0 0)
 	    :resize-fn (tex :resize-fn)
 	    :syphon-client nil
-	    :target :texture-rectangle))))
+	    :target (tex :target)))))
 
 (defmethod update-texture-device (view (device (eql :syphon)) texture-device)
   (declare (ignore device))
@@ -298,7 +302,7 @@
 	    (format t "~&<Syphon-\"~a~@[:~a~]\"> image-size: ~a, ~a image-name: ~a~%"
 		    (tex :app) (tex :name) w h name)
 	    (setf (tex :size) (list w h)))
-	  (gl:bind-texture :texture-rectangle name))))))
+	  (gl:bind-texture (tex :target) name))))))
 
 (defmethod release-texture-device (view (device (eql :syphon)) texture-device)
   (declare (ignore view device))
@@ -310,20 +314,20 @@
 (defmethod init-texture-device (view (device sb-kernel::simple-array-single-float) texture-device)
   (declare (ignore view texture-device))
   (let* ((texture (gl:gen-texture)))
-    (gl:bind-texture :texture-rectangle texture)
-    (gl:tex-parameter :texture-rectangle :texture-min-filter :nearest)
-    (gl:tex-parameter :texture-rectangle :texture-mag-filter :nearest)
-    (gl:tex-parameter :texture-rectangle :texture-wrap-s :clamp-to-edge)
-    (gl:tex-parameter :texture-rectangle :texture-wrap-t :clamp-to-edge)
-    (gl:bind-texture :texture-rectangle 0)
+    (gl:bind-texture  (tex :target) texture)
+    (gl:tex-parameter (tex :target) :texture-min-filter :nearest)
+    (gl:tex-parameter (tex :target) :texture-mag-filter :nearest)
+    (gl:tex-parameter (tex :target) :texture-wrap-s :clamp-to-edge)
+    (gl:tex-parameter (tex :target) :texture-wrap-t :clamp-to-edge)
+    (gl:bind-texture  (tex :target) 0)
     (list device
-	  :filter :nearest :wrap :clamp-to-edge :flip-p nil :tex-id texture :target :texture-rectangle)))
+	  :tex-id texture :target (tex :target))))
 
 (defmethod update-texture-device (view (device sb-kernel::simple-array-single-float) texture-device)
   (declare (ignore view))
-  (gl:bind-texture :texture-rectangle (tex :tex-id))
+  (gl:bind-texture (tex :target) (tex :tex-id))
   (cffi:with-pointer-to-vector-data (ptr device)
-    (gl:tex-image-2d :texture-rectangle 0 :r32f (length device) 1 0 :red :float ptr)))
+    (gl:tex-image-2d (tex :target) 0 :r32f (length device) 1 0 :red :float ptr)))
 
 (defmethod release-texture-device (view (device sb-kernel::simple-array-single-float) texture-device)
   (declare (ignore view device))
@@ -333,22 +337,22 @@
 (defmethod init-texture-device (view (device sc::buffer) texture-device)
   (declare (ignore view texture-device))
   (let* ((texture (gl:gen-texture)))
-    (gl:bind-texture :texture-rectangle texture)
-    (gl:tex-parameter :texture-rectangle :texture-min-filter :nearest)
-    (gl:tex-parameter :texture-rectangle :texture-mag-filter :nearest)
-    (gl:tex-parameter :texture-rectangle :texture-wrap-s :clamp-to-edge)
-    (gl:tex-parameter :texture-rectangle :texture-wrap-t :clamp-to-edge)
-    (gl:bind-texture :texture-rectangle 0)
+    (gl:bind-texture  (tex :target) texture)
+    (gl:tex-parameter (tex :target) :texture-min-filter :nearest)
+    (gl:tex-parameter (tex :target) :texture-mag-filter :nearest)
+    (gl:tex-parameter (tex :target) :texture-wrap-s :clamp-to-edge)
+    (gl:tex-parameter (tex :target) :texture-wrap-t :clamp-to-edge)
+    (gl:bind-texture  (tex :target) 0)
     (list device
-	  :filter :nearest :wrap :clamp-to-edge :flip-p nil :tex-id texture :target :texture-rectangle)))
+	  :tex-id texture :target (tex :target))))
 
 (defmethod update-texture-device (view (device sc::buffer) texture-device)
   (declare (ignore view))
-  (gl:bind-texture :texture-rectangle (tex :tex-id))
+  (gl:bind-texture (tex :target) (tex :tex-id))
   (cffi:with-foreign-slots ((sc::snd-bufs) (sc::sc-world sc::*s*) (:struct sc::world))
     (let* ((data (getf (cffi:mem-aref sc::snd-bufs '(:struct sc::snd-buf)
 				      (sc::bufnum device)) 'sc::data)))
-      (gl:tex-image-2d :texture-rectangle 0 :r32f (min 44100 (* (sc:chanls device) (sc:frames device)))
+      (gl:tex-image-2d (tex :target) 0 :r32f (min 44100 (* (sc:chanls device) (sc:frames device)))
 		       1 0 :red :float data))))
 
 (defmethod release-texture-device (view (device sc::buffer) texture-device)
@@ -363,22 +367,21 @@
 	 (fbo nil)
 	 (canvas (make-instance (tex :src) :width width :height height :camera (camera view))))
     (unwind-protect (progn
-		      (gl:bind-texture :texture-2d texture)
-		      (gl:tex-image-2d :texture-2d 0 :rgba8 width height 0 :rgba
+		      (gl:bind-texture (tex :target) texture)
+		      (gl:tex-image-2d (tex :target) 0 :rgba8 width height 0 :rgba
 				       :unsigned-byte (cffi:null-pointer))
-		      (gl:tex-parameter :texture-2d :texture-min-filter :linear)
-		      (gl:tex-parameter :texture-2d :texture-mag-filter :linear)
-		      (gl:tex-parameter :texture-2d :texture-wrap-s :clamp-to-edge)
-		      (gl:tex-parameter :texture-2d :texture-wrap-t :clamp-to-edge)
-		      (gl:bind-texture :texture-2d 0)
-		      (setf fbo (gfx:make-fbo width height :multisample t :texture texture))
+		      (gl:tex-parameter (tex :target) :texture-min-filter :linear)
+		      (gl:tex-parameter (tex :target) :texture-mag-filter :linear)
+		      (gl:tex-parameter (tex :target) :texture-wrap-s :clamp-to-edge)
+		      (gl:tex-parameter (tex :target) :texture-wrap-t :clamp-to-edge)
+		      (gl:bind-texture  (tex :target) 0)
+		      (setf fbo (gfx:make-fbo width height :multisample t :texture texture :target (tex :target)))
 		      (gfx:with-fbo (fbo) 
 			(gfx::init canvas)))
       (gl:bind-framebuffer :framebuffer
 			   (gfx::framebuffer (if (gl-canvas view) (fbo view) (gfx::output-fbo (fbo view))))))
     (list device
-	  :filter :linear :wrap :clamp-to-edge :flip-p nil 
-	  :tex-id texture :target :texture-2d :fbo fbo :gl-canvas canvas)))
+	  :tex-id texture :target (tex :target) :fbo fbo :gl-canvas canvas)))
 
 (defmethod update-texture-device (view (device (eql :fbo)) texture-device)
   (declare (ignore device))
@@ -388,14 +391,14 @@
   		(height (height view)))
   	   (unless (and (= width (gfx:width fbo))
   			(= height (gfx:height fbo)))
-  	     (gl:bind-texture :texture-2d (tex :tex-id))
-  	     (gl:tex-image-2d :texture-2d 0 :rgba8 width height 0 :rgba
+  	     (gl:bind-texture (tex :target) (tex :tex-id))
+  	     (gl:tex-image-2d (tex :target) 0 :rgba8 width height 0 :rgba
   			      :unsigned-byte (cffi:null-pointer))
-  	     (gl:bind-texture :texture-2d 0)
+  	     (gl:bind-texture (tex :target) 0)
   	     (gfx:reinit-fbo fbo width height)
   	     (setf (gfx:width (tex :gl-canvas)) width
   		   (gfx:height (tex :gl-canvas)) height))
-	   (gl:bind-texture :texture-2d (tex :tex-id))
+	   (gl:bind-texture (tex :target) (tex :tex-id))
   	   (gfx:with-fbo (fbo)
   	     (gfx::draw (tex :gl-canvas))))
       (gl:bind-framebuffer :framebuffer
@@ -431,15 +434,14 @@
       (with-cgl-context ((cgl-context renderer))
 	(gfx:with-fbo ((fbo renderer))
 	  (gfx:init gl-canvas)))
-      (gl:bind-texture :texture-rectangle texture)
-      (cgl:tex-image-io-surface-2d (cgl-context view) :texture-rectangle
+      (gl:bind-texture (tex :target) texture)
+      (cgl:tex-image-io-surface-2d (cgl-context view) (tex :target)
 				   :rgba width height :bgra
 				   :unsigned-int-8-8-8-8-rev io-surface 0)
-      (gl:bind-texture :texture-rectangle 0)
+      (gl:bind-texture (tex :target) 0)
       (list device
-	    :filter :linear :wrap :clamp-to-edge :flip-p nil
 	    :tex-id texture
-	    :target :texture-rectangle
+	    :target (tex :target)
 	    :renderer renderer
 	    :gl-canvas gl-canvas
 	    :io-surface io-surface
@@ -459,12 +461,12 @@
       (ns:release (tex :io-surface))
       (let* ((io-surface (io-surface:lookup (io-surface:id (iosurface renderer)))))
 	(setf (tex :io-surface) io-surface)
-	(gl:bind-texture :texture-rectangle (tex :tex-id))
-	(cgl:tex-image-io-surface-2d (cgl-context view) :texture-rectangle
+	(gl:bind-texture (tex :target) (tex :tex-id))
+	(cgl:tex-image-io-surface-2d (cgl-context view) (tex :target)
 				     :rgba width height :bgra
 				     :unsigned-int-8-8-8-8-rev (tex :io-surface) 0)
-	(gl:bind-texture :texture-rectangle 0)))
-    (gl:bind-texture :texture-rectangle (tex :tex-id))
+	(gl:bind-texture (tex :target) 0)))
+    (gl:bind-texture (tex :target) (tex :tex-id))
     (with-cgl-context ((cgl-context renderer))
       (gfx:with-fbo ((fbo renderer))
 	(gfx:draw canvas))

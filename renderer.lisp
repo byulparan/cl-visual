@@ -132,12 +132,6 @@
 
 
 ;;; ===========================================================================
-(defun texture-types (texture-devices)
-  (mapcar (lambda (device)
-	    (ecase (getf (cdr device) :target)
-	      (:texture-2d :sampler-2d)
-	      (:texture-rectangle :sampler-2d-rect)))
-	  texture-devices))
 
 (defun reinit-shader (renderer new-shader)
   (loop for (name shader-spec) on (gfx::shaders renderer) by #'cddr
@@ -153,6 +147,14 @@
 	     (setf (gfx::shaders renderer) nil)))
   (setf (shader renderer) new-shader))
 
+(defun texture-types (texture-devices)
+  (mapcar (lambda (device)
+	    (ecase (getf (cdr device) :target)
+	      (:texture-2d :sampler-2d)
+	      (:texture-rectangle :sampler-2d-rect)))
+	  texture-devices))
+
+
 (defun reinit-visual-renderer (renderer options &optional scene-size)
   (with-cgl-context ((cgl-context renderer))
     (when scene-size
@@ -161,20 +163,17 @@
     (loop for device in (texture-devices renderer)
 	  do (release-texture-device renderer (car device) (cdr device)))
     (let* ((devices (getf options :textures)))
-      (setf (texture-devices renderer) (loop for device in devices
-					  collect (let ((device (alexandria:ensure-list device)))
-						    (init-texture-device renderer (car device) (cdr device)))))
-      (when (texture-devices renderer)
-      	(let* ((pipeline (gethash (shader renderer) gfx::*all-pipeline-table*))
-      	       (texture-types (texture-types (texture-devices renderer))))
-      	  (unless (equal (mapcar #'second (subseq (gfx::%pipeline-uniforms pipeline) 0 (length texture-types)))
-      			 texture-types)
-      	    (loop for tex in texture-types
-      		  for uniforms in (gfx::%pipeline-uniforms pipeline)
-      		  for i from 0 
-      		  do (unless (eql (second uniforms) tex)
-      		       (setf (second (nth i (gfx::%pipeline-uniforms pipeline))) tex)))
-      	    (gfx::update-source pipeline))))
+      (let* ((pipeline (gethash (shader renderer) gfx::*all-pipeline-table*))
+	     (targets (mapcar (lambda (type) (case type 
+					       (:sampler-2d :texture-2d)
+					       (:sampler-2d-rect :texture-rectangle)))
+		       (mapcar #'second (subseq (gfx::%pipeline-uniforms pipeline) 0 (length devices))))))
+	(setf (texture-devices renderer)
+	  (loop for device in devices
+		for target in targets
+		collect (let ((device (alexandria:ensure-list device)))
+			  (init-texture-device renderer (car device) (append (cdr device)
+									     (list :target target)))))))
       (when-let ((canvas (gl-canvas renderer)))
 	(setf (gfx:width canvas) (width renderer)
 	      (gfx:height canvas) (height renderer))
@@ -252,11 +251,6 @@
 	  do (release-texture-device renderer (car device) (cdr device)))
     (call-next-method)))
 
-
-(defvar *ichannels* (make-list 8 :initial-element :sampler-2d-rect))
-(defun ichannel (index sampler-type)
-  (setf (nth index *ichannels*) sampler-type))
-
 (defmacro gfx::define-shader (name &body body)
   (let ((name (ensure-list name))
 	(ichannel-target (make-list 8 :initial-element :sampler-2d-rect)))
@@ -264,8 +258,7 @@
 	  do (setf (nth index ichannel-target) target))
     `(gfx:defpipeline (,(car name) :version 330)
 	 (,@(loop for i from 0 below 8
-		  collect (list (intern (format nil "ICHANNEL~d" i)) (nth i ichannel-target))
-		  )
+		  collect (list (intern (format nil "ICHANNEL~d" i)) (nth i ichannel-target)))
 	  (iglobal-time :float)
 	  (itime :float)
 	  ,@(loop for i from 0 below 6
