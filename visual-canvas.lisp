@@ -1,7 +1,5 @@
 (in-package :cl-visual)
 
-(defvar *visual-canvas* nil)
-
 (defun gfx::clear-pipeline ()
   (gfx:reinit-shader-system)
   (loop for pipeline being the hash-values of gfx::*all-pipeline-table*
@@ -245,7 +243,10 @@
   	  (draw-fps-info (fps-info view) view-w view-h w h))))))
 
 
-(defvar *last-command* nil)
+
+(defvar *visual-canvas* nil)
+(defvar *last-commands* nil)
+(defvar *last-ichannel-targets* nil)
 
 (defmethod ns:release ((view visual-canvas))
   (release (renderer view))
@@ -260,7 +261,7 @@
     (ns:release syphon))
   (sc:free (audio-group view))
   (setf *visual-canvas* nil)
-  (setf *last-command* nil))
+  (setf *last-commands* nil))
 
 (defmacro gfx::start-shader (shader &key textures
 				      (reinit-time (let ((cur-time (gfx:get-internal-seconds)))
@@ -275,7 +276,7 @@
 				      gl-canvas)
   (let* ((window-name (format nil "~a" shader)))
     (assert (gethash shader gfx::*all-pipeline-table*) nil "can't find \"~a\" shader" shader)
-    (setf *last-command* (list :textures textures :reinit-time reinit-time :size size
+    (setf *last-commands* (list :textures textures :reinit-time reinit-time :size size
 			       :scene-ratio scene-ratio :user-fn user-fn :syphon syphon :output-filter output-filter
 			       :retina retina :info info :gl-canvas gl-canvas))
     `(if *visual-canvas* (progn (send-message (mailbox *visual-canvas*)
@@ -288,20 +289,20 @@
 						    :scene-ratio ,scene-ratio
 						    :retina ,retina
 						    :gl-canvas ,gl-canvas))
-				   (ns:with-event-loop nil
-				     (ns:objc (window *visual-canvas*) "setTitle:"
-					      :pointer (ns:autorelease (ns:make-ns-string ,window-name)))
-				     (when (and ,size (not (ns:objc (cl-visual::window cl-visual::*visual-canvas*) "isFullscreen" :bool)))
-				       (let* ((window (window *visual-canvas*))
-					      (frame (ns:objc-stret ns:rect window "frame")))
-					 (ns:objc (window *visual-canvas*) "setFrame:display:"
-						  (:struct ns:rect) (ns:make-rect (ns:rect-x frame)
-										  (+ (ns:rect-y frame)
-										     (- (ns:rect-height frame)
-											(+ 22 ,(third size))))
-										  ,(second size)
-										  (+ 22 ,(third size)))
-						  :int 0)))))
+				(ns:with-event-loop nil
+				  (ns:objc (window *visual-canvas*) "setTitle:"
+					   :pointer (ns:autorelease (ns:make-ns-string ,window-name)))
+				  (when (and ,size (not (ns:objc (cl-visual::window cl-visual::*visual-canvas*) "isFullscreen" :bool)))
+				    (let* ((window (window *visual-canvas*))
+					   (frame (ns:objc-stret ns:rect window "frame")))
+				      (ns:objc (window *visual-canvas*) "setFrame:display:"
+					       (:struct ns:rect) (ns:make-rect (ns:rect-x frame)
+									       (+ (ns:rect-y frame)
+										  (- (ns:rect-height frame)
+										     (+ 22 ,(third size))))
+									       ,(second size)
+									       (+ 22 ,(third size)))
+					       :int 0)))))
        (ns:with-event-loop (:waitp t)
 	 (let* ((renderer (make-instance 'visual-renderer :reinit-time ,reinit-time
 	 				 :core-profile t))
@@ -332,13 +333,13 @@
 
 (defmacro gfx::define-shader (name &body body)
   (let ((name (ensure-list name))
-	(ichannel-target (make-list 8 :initial-element :sampler-2d-rect)))
+	(ichannel-targets (make-list 8 :initial-element :sampler-2d-rect)))
     (loop for (index target) in (second name)
-	  do (setf (nth index ichannel-target) target))
+	  do (setf (nth index ichannel-targets) target))
     `(progn
        (gfx:defpipeline (,(car name) :version 330)
 	   (,@(loop for i from 0 below 8
-		    collect (list (intern (format nil "ICHANNEL~d" i)) (nth i ichannel-target)))
+		    collect (list (intern (format nil "ICHANNEL~d" i)) (nth i ichannel-targets)))
 	    (iglobal-time :float)
 	    (itime :float)
 	    ,@(loop for i from 0 below 6
@@ -357,9 +358,12 @@
 	 (:fragment ((vfuv :vec2))
 		    (progn ,@body)))
        ;; reinterpret ======================================================================
-       ;; (when (and *visual-canvas* (eql ',(car name) (shader (renderer *visual-canvas*))))
-       ;; 	 (gfx:start-shader ,(car name) ,@*last-command*)
-       ;; 	 (format t "~&reinterpret shader: ~a~%" ',(car name)))
+       (when (and *visual-canvas*
+		  (eql ',(car name) (shader (renderer *visual-canvas*)))
+		  (not (equal ',ichannel-targets *last-ichannel-targets*)))
+	 (gfx::start-shader ,(car name) ,@*last-commands*)
+	 (format t "~&reinterpret shader: ~a~%" ',(car name)))
+       (setf *last-ichannel-targets* ',ichannel-targets)
        ',(car name))))
 
 
