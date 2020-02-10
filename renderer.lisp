@@ -105,17 +105,6 @@
     :initform nil
     :accessor gl-canvas)))
 
-(defun default-gl-tex-parameter (filter wrap)
-  (let ((min-filter filter))
-    (when (eql filter :mipmap)
-      (setf min-filter :linear-mipmap-linear
-	    filter :linear))
-    (gl:tex-parameter :texture-2d :texture-mag-filter filter)
-    (gl:tex-parameter :texture-2d :texture-min-filter min-filter)
-    (gl:tex-parameter :texture-2d :texture-wrap-s wrap)
-    (gl:tex-parameter :texture-2d :texture-wrap-t wrap)))
-
-
 
 ;;; ===========================================================================
 ;;;
@@ -147,44 +136,38 @@
 	     (setf (gfx::shaders renderer) nil)))
   (setf (shader renderer) new-shader))
 
-(defun texture-types (texture-devices)
-  (mapcar (lambda (device)
-	    (ecase (getf (cdr device) :target)
-	      (:texture-2d :sampler-2d)
-	      (:texture-rectangle :sampler-2d-rect)))
-	  texture-devices))
-
+(defun reinit-textures (renderer options)
+  (loop for device in (texture-devices renderer)
+	do (release-texture-device renderer (car device) (cdr device)))
+  (let* ((devices (getf options :textures)))
+    (let* ((pipeline (gethash (shader renderer) gfx::*all-pipeline-table*))
+	   (targets (mapcar (lambda (type) (ecase type 
+					     (:sampler-2d :texture-2d)
+					     (:sampler-2d-rect :texture-rectangle)))
+			    (mapcar #'second (subseq (gfx::%pipeline-uniforms pipeline) 0 (length devices))))))
+      (setf (texture-devices renderer)
+	(loop for device in devices
+	      for target in targets
+	      collect (let ((device (alexandria:ensure-list device)))
+			(init-texture-device renderer (car device) (append (cdr device)
+									   (list :target target)))))))))
 
 (defun reinit-visual-renderer (renderer options &optional scene-size)
   (with-cgl-context ((cgl-context renderer))
     (when scene-size
       (resize-framebuffer renderer (car scene-size) (second scene-size)))
     (reinit-shader renderer (getf options :shader))
-    (loop for device in (texture-devices renderer)
-	  do (release-texture-device renderer (car device) (cdr device)))
-    (let* ((devices (getf options :textures)))
-      (let* ((pipeline (gethash (shader renderer) gfx::*all-pipeline-table*))
-	     (targets (mapcar (lambda (type) (case type 
-					       (:sampler-2d :texture-2d)
-					       (:sampler-2d-rect :texture-rectangle)))
-		       (mapcar #'second (subseq (gfx::%pipeline-uniforms pipeline) 0 (length devices))))))
-	(setf (texture-devices renderer)
-	  (loop for device in devices
-		for target in targets
-		collect (let ((device (alexandria:ensure-list device)))
-			  (init-texture-device renderer (car device) (append (cdr device)
-									     (list :target target)))))))
-      (when-let ((canvas (gl-canvas renderer)))
-	(setf (gfx:width canvas) (width renderer)
-	      (gfx:height canvas) (height renderer))
-	(gfx:release canvas)
-	(gfx:release-context canvas))
-      (setf (gl-canvas renderer) nil)
-      (when-let ((canvas (getf options :gl-canvas)))
-	(setf (gl-canvas renderer) (make-instance canvas :camera (camera renderer)
-						  :width (width renderer) :height (height renderer)))
-	(gfx:init (gl-canvas renderer))))))
-
+    (reinit-textures renderer options)
+    (when-let ((canvas (gl-canvas renderer)))
+      (setf (gfx:width canvas) (width renderer)
+	    (gfx:height canvas) (height renderer))
+      (gfx:release canvas)
+      (gfx:release-context canvas))
+    (setf (gl-canvas renderer) nil)
+    (when-let ((canvas (getf options :gl-canvas)))
+      (setf (gl-canvas renderer) (make-instance canvas :camera (camera renderer)
+						:width (width renderer) :height (height renderer)))
+      (gfx:init (gl-canvas renderer)))))
 
 (defun draw-shader (renderer w h)
   (setf (projection-matrix renderer) (kit.math:perspective-matrix 45.0 (/ w h) .1 10000.0)
@@ -238,11 +221,12 @@
 	(loop for unit in '(:texture0 :texture1 :texture2 :texture3
 			    :texture4 :texture5 :texture6 :texture7)
 	      for device in (texture-devices renderer)
+	      for target = (getf (cdr device) :target)
 	      do (gl:active-texture unit)
 		 (case (car device)
 		   (:previous-frame
-		    (gl:copy-tex-image-2d :texture-rectangle 0 :rgba8 0 0 w h 0)))
-		 (gl:bind-texture (getf (cdr device) :target) 0)))) 
+		    (gl:copy-tex-image-2d target 0 :rgba8 0 0 w h 0)))
+		 (gl:bind-texture target 0)))) 
     (gl:flush)))
 
 (defmethod release ((renderer visual-renderer))
