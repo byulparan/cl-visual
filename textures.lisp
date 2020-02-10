@@ -106,19 +106,13 @@
   (let ((texture (gl:gen-texture))
 	(filter :linear)
 	(wrap :clamp-to-edge))
-    (gl:bind-texture :texture-2d texture)
-    (gl:tex-parameter :texture-2d :texture-mag-filter filter)
-    (gl:tex-parameter :texture-2d :texture-min-filter filter)
-    (gl:tex-parameter :texture-2d :texture-wrap-s wrap)
-    (gl:tex-parameter :texture-2d :texture-wrap-t wrap)
-    (gl:bind-texture :texture-2d 0)
     (list device
 	  :filter filter :wrap wrap :flip-p nil
-	  :tex-id texture :target :texture-2d)))
+	  :tex-id texture :target :texture-rectangle)))
 
 (defmethod update-texture-device (view (device (eql :previous-frame)) texture-device)
   (declare (ignore view device))
-  (gl:bind-texture :texture-2d (tex :tex-id)))
+  (gl:bind-texture :texture-rectangle (tex :tex-id)))
 
 (defmethod release-texture-device (view (device (eql :previous-frame)) texture-device)
   (declare (ignore view device))
@@ -160,23 +154,21 @@
 	 (h (cg:image-height image)))
     (destructuring-bind (filter wrap flip-p)
 	(parse-texture-options texture-device)
-      (gl:bind-texture :texture-2d texture)
-      (gl:tex-image-2d :texture-2d 0 (first format) w h 0 (second format) :unsigned-byte
+      (gl:bind-texture :texture-rectangle texture)
+      (gl:tex-image-2d :texture-rectangle 0 (first format) w h 0 (second format) :unsigned-byte
 		       (cg:image-bitmap-data image))
-      (when (eql filter :mipmap)
-	(gl:generate-mipmap :texture-2d))
-      (gl:tex-parameter :texture-2d :texture-mag-filter :linear)
-      (gl:tex-parameter :texture-2d :texture-min-filter :linear)
-      (gl:tex-parameter :texture-2d :texture-wrap-s wrap)
-      (gl:tex-parameter :texture-2d :texture-wrap-t wrap)
-      (gl:bind-texture :texture-2d 0)
+      (gl:tex-parameter :texture-rectangle :texture-mag-filter :linear)
+      (gl:tex-parameter :texture-rectangle :texture-min-filter :linear)
+      (gl:tex-parameter :texture-rectangle :texture-wrap-s :clamp-to-edge)
+      (gl:tex-parameter :texture-rectangle :texture-wrap-t :clamp-to-edge)
+      (gl:bind-texture :texture-rectangle 0)
       (list device
-	    :filter filter :wrap wrap :flip-p flip-p :tex-id texture :target :texture-2d))))
+	    :filter filter :wrap wrap :flip-p flip-p :tex-id texture :target :texture-rectangle))))
 
 
 (defmethod update-texture-device (view (device (eql :image)) texture-device)
   (declare (ignore view device))
-  (gl:bind-texture :texture-2d (tex :tex-id)))
+  (gl:bind-texture :texture-rectangle (tex :tex-id)))
 
 (defmethod release-texture-device (view (device (eql :image)) texture-device)
   (declare (ignore view device))
