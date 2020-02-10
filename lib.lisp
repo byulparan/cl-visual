@@ -1,10 +1,10 @@
-(defpackage :cl-visual-lib
+(defpackage :shader-lib
   (:shadowing-import-from #:gfx #:defpipeline :fill)
-  (:nicknames :vl)
+  (:nicknames :sl)
   (:use #:cl :glsl :cl-visual :alexandria)
   (:export #:build-light))
 
-(in-package :cl-visual-lib)
+(in-package :shader-lib)
 
 (defmacro define-function-library (name args &body body)
   (let ((newargs (mapcar #'(lambda (a) (intern (format nil "~a-~a" (first a) (second a)))) args)))
@@ -189,6 +189,12 @@
 		 (t (setf lighting (+ (* d ndl) (* s (pow ndh alpha))))))
 	   (incf col lighting)
 	   col)))))
+
+(define-macro-library texture! (texture uv &optional flip)
+  (if flip
+      (once-only (uv)
+	`(texture ,texture (* (v! (x ,uv) (- 1.0 (y ,uv)))  (texture-size ,texture))))
+      `(texture ,texture (* ,uv (texture-size ,texture)))))
 
 (gfx:clear-pipeline)
 
