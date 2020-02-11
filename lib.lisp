@@ -191,10 +191,14 @@
 	   col)))))
 
 (define-macro-library texture! (texture uv &optional flip)
-  (if flip
-      (once-only (uv)
-	`(texture ,texture (* (v! (x ,uv) (- 1.0 (y ,uv)))  (texture-size ,texture))))
-      `(texture ,texture (* ,uv (texture-size ,texture)))))
+  (let* ((target (glsl::compile-form texture))
+	 (size (ecase (glsl::code-type target)
+		 (:sampler-2d 1.0)
+		 (:sampler-2d-rect `(texture-size ,texture)))))
+    (if flip
+	(once-only (uv)
+	  `(texture ,texture (* (v! (x ,uv) (- 1.0 (y ,uv))) ,size)))
+      `(texture ,texture (* ,uv ,size)))))
 
 (gfx:clear-pipeline)
 
