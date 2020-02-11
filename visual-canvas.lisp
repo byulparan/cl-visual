@@ -149,11 +149,15 @@
 		     (list (ns:width view) (ns:height view)))))
     (when (or (/= (car new-size) (car old-size))
 	      (/= (second new-size) (second old-size)))
-      (send-message (mailbox view) :force-resize))))
+      (#+sbcl send-message
+       #+ccl mailbox-send-message
+       (mailbox view) :force-resize))))
 
 (defun update-visual-canvas (canvas)
   (unless (mailbox-empty-p (mailbox canvas))
-    (let* ((options (receive-message (mailbox canvas)))
+    (let* ((options (#+sbcl receive-message
+		     #+ccl mailbox-receive-message
+		     (mailbox canvas)))
 	   (scene-size nil))
       (flet ((get-scene-size (scene-ratio best-size)
 	       (list (floor (* scene-ratio (first best-size)))
@@ -277,18 +281,20 @@
   (let* ((window-name (format nil "~a" shader)))
     (assert (gethash shader gfx::*all-pipeline-table*) nil "can't find \"~a\" shader" shader)
     (setf *last-commands* (list :textures textures :reinit-time reinit-time :size size
-			       :scene-ratio scene-ratio :user-fn user-fn :syphon syphon :output-filter output-filter
-			       :retina retina :info info :gl-canvas gl-canvas))
-    `(if *visual-canvas* (progn (send-message (mailbox *visual-canvas*)
-					      (list :textures ,textures
-						    :shader ',shader
-						    :output-filter ,output-filter
-						    :syphon ,syphon
-						    :user-fn ,user-fn
-						    :info ,info
-						    :scene-ratio ,scene-ratio
-						    :retina ,retina
-						    :gl-canvas ,gl-canvas))
+				:scene-ratio scene-ratio :user-fn user-fn :syphon syphon :output-filter output-filter
+				:retina retina :info info :gl-canvas gl-canvas))
+    `(if *visual-canvas* (progn (#+sbcl send-message
+				 #+ccl mailbox-send-message
+				 (mailbox *visual-canvas*)
+				 (list :textures ,textures
+				       :shader ',shader
+				       :output-filter ,output-filter
+				       :syphon ,syphon
+				       :user-fn ,user-fn
+				       :info ,info
+				       :scene-ratio ,scene-ratio
+				       :retina ,retina
+				       :gl-canvas ,gl-canvas))
 				(ns:with-event-loop nil
 				  (ns:objc (window *visual-canvas*) "setTitle:"
 					   :pointer (ns:autorelease (ns:make-ns-string ,window-name)))
@@ -316,17 +322,21 @@
 	   (ns:objc canvas "setWantsBestResolutionOpenGLSurface:" :bool (retina canvas))
 	   (setf (ns:content-view window) canvas)
 	   (setf (window canvas) window)
-	   (send-message (mailbox canvas) :force-resize)
-	   (send-message (mailbox canvas)
-	   		 (list :textures ,textures
-	   		       :shader ',shader
-	   		       :output-filter ,output-filter
-	   		       :syphon ,syphon
-	   		       :user-fn ,user-fn
-	   		       :info ,info
-	   		       :scene-ratio ,scene-ratio
-	   		       :retina ,retina
-	   		       :gl-canvas ,gl-canvas))
+	   (#+sbcl send-message
+	    #+ccl mailbox-send-message 
+	    (mailbox canvas) :force-resize)
+	   (#+sbcl send-message
+	    #+ccl mailbox-send-message
+	    (mailbox canvas)
+	    (list :textures ,textures
+		  :shader ',shader
+		  :output-filter ,output-filter
+		  :syphon ,syphon
+		  :user-fn ,user-fn
+		  :info ,info
+		  :scene-ratio ,scene-ratio
+		  :retina ,retina
+		  :gl-canvas ,gl-canvas))
 	   (setf *visual-canvas* canvas)
 	   (ns:window-show window))))))
 
