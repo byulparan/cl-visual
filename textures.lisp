@@ -69,39 +69,6 @@
     (sc:free synth)
     (setf (getf (audio-data view) :scope-synth) nil)))
 
-;;;
-;;; screen frame
-;;; 
-(defmethod init-texture-device (view (device (eql :screen-frame)) texture-device)
-  (let* ((rect (tex :rect))
-	 (texture (gl:gen-texture)))
-    (gl:bind-texture  (tex :target) texture)
-    (gl:tex-parameter (tex :target) :texture-mag-filter :linear)
-    (gl:tex-parameter (tex :target) :texture-min-filter :linear)
-    (gl:tex-parameter (tex :target) :texture-wrap-s :clamp-to-edge)
-    (gl:tex-parameter (tex :target) :texture-wrap-t :clamp-to-edge)
-    (gl:bind-texture  (tex :target) 0)
-    (unless rect (setf rect (list 0 0 200 200)))
-    (destructuring-bind (x y w h)
-	rect
-      (list device
-	    :rect (ns:make-rect x y w h)
-	    :tex-id texture
-	    :target (tex :target)))))
-
-(defmethod update-texture-device (view (device (eql :screen-frame)) texture-device)
-  (declare (ignore view device))
-  (let* ((rect (tex :rect))
-  	 (image (cg:image-from-screen rect)))
-    (gl:bind-texture (tex :target) (tex :tex-id))
-    (gl:tex-image-2d (tex :target) 0 :rgba8 (cg:image-width image) (cg:image-height image) 0
-		     :rgba :unsigned-byte (cg:image-bitmap-data image))
-    (cg:release-image image)))
-
-(defmethod release-texture-device (view (device (eql :screen-frame)) texture-device)
-  (declare (ignore view device))
-  (gl:delete-texture (tex :tex-id)))
-
 
 ;; previous frame
 (defmethod init-texture-device (view (device (eql :previous-frame)) texture-device)
@@ -208,19 +175,53 @@
   (let* ((texture-cache (core-video:make-texture-cache (cgl-context view)
 						       (pixel-format view))))
     (list device
-	  :resize-fn (tex :resize-fn)
 	  :texture-cache texture-cache
 	  :target (tex :target))))
 
 (defmethod update-texture-device (view (device av:player) texture-device)
   (declare (ignore view))
-  (av:with-texture-cache (device (tex :texture-cache) width height)
-    (when-let ((resize-fn (tex :resize-fn)))
-      (funcall resize-fn width height))))
+  (av:with-texture-cache (device (tex :texture-cache) width height)))
 
 (defmethod release-texture-device (view (device av:player) texture-device)
   (declare (ignore view device))
   (core-video:release-texture-cache (tex :texture-cache)))
+
+
+
+
+;;;
+;;; screen frame legacy(CoreGraphics based)
+;;; 
+(defmethod init-texture-device (view (device (eql :cg-screen-frame)) texture-device)
+  (let* ((rect (tex :src))
+	 (texture (gl:gen-texture)))
+    (gl:bind-texture  (tex :target) texture)
+    (gl:tex-parameter (tex :target) :texture-mag-filter :linear)
+    (gl:tex-parameter (tex :target) :texture-min-filter :linear)
+    (gl:tex-parameter (tex :target) :texture-wrap-s :clamp-to-edge)
+    (gl:tex-parameter (tex :target) :texture-wrap-t :clamp-to-edge)
+    (gl:bind-texture  (tex :target) 0)
+    (unless rect (setf rect (list 0 0 200 200)))
+    (destructuring-bind (x y w h)
+	rect
+      (list device
+	    :src (ns:make-rect x y w h)
+	    :tex-id texture
+	    :target (tex :target)))))
+
+(defmethod update-texture-device (view (device (eql :cg-screen-frame)) texture-device)
+  (declare (ignore view device))
+  (let* ((rect (tex :src))
+  	 (image (cg:image-from-screen rect)))
+    (gl:bind-texture (tex :target) (tex :tex-id))
+    (gl:tex-image-2d (tex :target) 0 :rgba8 (cg:image-width image) (cg:image-height image) 0
+		     :rgba :unsigned-byte (cg:image-bitmap-data image))
+    (cg:release-image image)))
+
+(defmethod release-texture-device (view (device (eql :cg-screen-frame)) texture-device)
+  (declare (ignore view device))
+  (gl:delete-texture (tex :tex-id)))
+
 
 ;;; 
 ;;; av-capture
@@ -235,9 +236,23 @@
       (av:start-capture capture)
       (list capture
 	    :release-p t
-	    :resize-fn (tex :resize-fn)
 	    :texture-cache texture-cache
 	    :target (tex :target)))))
+
+(defmethod init-texture-device (view (device (eql :screen-frame)) texture-device)
+  (declare (ignore view))
+  (let* ((rect (tex :src))
+	 (fps (tex :fps)))
+    (let* ((capture (av:make-screen-capture (when rect (apply #'ns:make-rect rect))
+					    (if fps fps 60)))
+	   (texture-cache (core-video:make-texture-cache (cgl-context view)
+							 (pixel-format view))))
+      (av:start-capture capture)
+      (list capture
+	    :release-p t
+	    :texture-cache texture-cache
+	    :target (tex :target)))))
+
 
 (defmethod init-texture-device (view (device av:capture) texture-device)
   (declare (ignore view texture-device))
@@ -245,15 +260,12 @@
 						       (pixel-format view))))
     (list device
 	  :release-p nil
-	  :resize-fn (tex :resize-fn)
 	  :texture-cache texture-cache
 	  :target (tex :target))))
 
 (defmethod update-texture-device (view (device av:capture) texture-device)
   (declare (ignore view))
-  (av:with-texture-cache (device (tex :texture-cache) width height)
-    (when-let ((resize-fn (tex :resize-fn)))
-      (funcall resize-fn width height))))
+  (av:with-texture-cache (device (tex :texture-cache) width height)))
 
 (defmethod release-texture-device (view (device av:capture) texture-device)
   (declare (ignore view))
@@ -276,7 +288,6 @@
 	    :app (car dict)
 	    :name (second dict)
 	    :size (list 0 0)
-	    :resize-fn (tex :resize-fn)
 	    :syphon-client nil
 	    :target (tex :target)))))
 
@@ -297,8 +308,6 @@
 	       (name (syphon:texture-name image)))
 	  (unless (and (= w (car orig-size))
 		       (= h (second orig-size)))
-	    (when-let ((resize-fn (tex :resize-fn)))
-	      (funcall resize-fn w h))
 	    (format t "~&<Syphon-\"~a~@[:~a~]\"> image-size: ~a, ~a image-name: ~a~%"
 		    (tex :app) (tex :name) w h name)
 	    (setf (tex :size) (list w h)))
