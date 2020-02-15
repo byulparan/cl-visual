@@ -246,8 +246,8 @@
     (let* ((capture (av:make-screen-capture (when rect (apply #'ns:make-rect rect))
 					    (if fps fps 60)))
 	   (texture-cache (core-video:make-texture-cache (cgl-context view)
-							 (pixel-format view))))
-      (av:start-capture capture)
+	   						 (pixel-format view))))
+      (ns:queue-for-event-loop (lambda () (av:start-capture capture)))
       (list capture
 	    :release-p t
 	    :texture-cache texture-cache
@@ -270,8 +270,10 @@
 (defmethod release-texture-device (view (device av:capture) texture-device)
   (declare (ignore view))
   (when (tex :release-p)
-    (av:stop-capture device)
-    (av:release-capture device))
+    (ns:queue-for-event-loop
+     (lambda ()
+       (av:stop-capture device)
+       (av:release-capture device))))
   (core-video:release-texture-cache (tex :texture-cache)))
 
 ;;; 
