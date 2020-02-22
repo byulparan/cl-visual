@@ -303,11 +303,12 @@
 					   (frame (ns:objc-stret ns:rect window "frame")))
 				      (ns:objc (window *visual-canvas*) "setFrame:display:"
 					       (:struct ns:rect) (ns:make-rect (ns:rect-x frame)
-									       (+ (ns:rect-y frame)
-										  (- (ns:rect-height frame)
-										     (+ 22 ,(third size))))
-									       ,(second size)
-									       (+ 22 ,(third size)))
+										(+ (ns:rect-y frame)
+										   (- (ns:rect-height frame)
+										      (+ 22 ,(third size))))
+										,(second size)
+										(+ 22 ,(third size)))
+
 					       :int 0)))))
        (ns:with-event-loop (:waitp t)
 	 (let* ((renderer (make-instance 'visual-renderer :reinit-time ,reinit-time
@@ -317,8 +318,9 @@
 	 			       :renderer renderer
 	 			       :retina ,retina
 	 			       :core-profile nil))
-	 	(window (make-instance 'ns:window :x 0 :y 1000 :w ,(if size (second size) 720) :h ,(if size (third size) 450)
-	 			       :title ,window-name)))
+	 	(window (make-instance 'ns:window
+			  :rect (ns:in-screen-rect (ns:make-rect 0 1000 ,(if size (second size) 720) ,(if size (third size) 450)))
+			  :title ,window-name)))
 	   (ns:objc canvas "setWantsBestResolutionOpenGLSurface:" :bool (retina canvas))
 	   (setf (ns:content-view window) canvas)
 	   (setf (window canvas) window)
