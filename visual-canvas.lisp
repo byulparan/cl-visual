@@ -254,6 +254,7 @@
 
 (defmethod ns:release ((view visual-canvas))
   (release (renderer view))
+  (gfx:release-context view)
   (ns:release (iosurface view))
   (ns:release (ci-context view))
   (destroy-fps-info (fps-info view))
