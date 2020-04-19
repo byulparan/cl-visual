@@ -5,7 +5,7 @@
 (defvar *num-icontrol* 10)
 (defvar *icontrol-index* 16200)
 
-(defclass renderer (gfx:gl-context)
+(defclass renderer ()
   ((cgl-context
     :reader cgl-context)
    (core-profile
@@ -65,7 +65,6 @@
 
 (defmethod release ((renderer renderer))
   (with-cgl-context ((cgl-context renderer))
-    (gfx:release-context renderer)
     (gfx:release-fbo (fbo renderer))
     (ns:release (iosurface renderer))
     (gl:delete-texture (texture renderer))
@@ -75,7 +74,7 @@
 ;;; ================================================================================
 ;;;  visual-renderer
 ;;;
-(defclass visual-renderer (renderer)
+(defclass visual-renderer (renderer gfx:gl-context)
   ((gpu-stream
     :reader gpu-stream
     :initform (gfx:make-gpu-stream '((pos :vec2))
@@ -233,5 +232,6 @@
   (with-cgl-context ((cgl-context renderer))
     (loop for device in (texture-devices renderer)
 	  do (release-texture-device renderer (car device) (cdr device)))
-    (call-next-method)))
+    (gfx:release-context renderer))
+  (call-next-method))
 
