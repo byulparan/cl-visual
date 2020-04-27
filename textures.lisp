@@ -3,6 +3,17 @@
 (defmacro tex (key)
   `(getf texture-device ,key))
 
+(defmacro filter (default)
+  (alexandria:with-gensyms (filter)
+    `(let* ((,filter (getf texture-device :filter)))
+       (if ,filter ,filter ,default))))
+
+(defmacro wrap (default)
+  (alexandria:with-gensyms (wrap)
+    `(let* ((,wrap (getf texture-device :wrap)))
+       (if ,wrap ,wrap ,default))))
+
+
 ;;; 
 ;;; audio-frame
 ;;; 
@@ -35,12 +46,14 @@
 (defmethod init-texture-device (view (device (eql :audio-frame)) texture-device)
   (let* ((frame-bus (tex :frame-bus))
 	 (synth (getf (audio-data view) :scope-synth))
-	 (texture (gl:gen-texture)))
+	 (texture (gl:gen-texture))
+	 (filter (filter :linear))
+	 (wrap (wrap :clamp-to-edge)))
     (gl:bind-texture  (tex :target) texture)
-    (gl:tex-parameter (tex :target) :texture-mag-filter :linear)
-    (gl:tex-parameter (tex :target) :texture-min-filter :linear)
-    (gl:tex-parameter (tex :target) :texture-wrap-s :clamp-to-edge)
-    (gl:tex-parameter (tex :target) :texture-wrap-t :clamp-to-edge)
+    (gl:tex-parameter (tex :target) :texture-mag-filter filter)
+    (gl:tex-parameter (tex :target) :texture-min-filter filter)
+    (gl:tex-parameter (tex :target) :texture-wrap-s wrap)
+    (gl:tex-parameter (tex :target) :texture-wrap-t wrap)
     (gl:bind-texture  (tex :target) 0)
     (setf frame-bus (if frame-bus frame-bus 0))
     (if synth (sc::ctrl synth :bus frame-bus)
@@ -49,7 +62,7 @@
 	  :context view :tex-id texture :target (tex :target))))
 
 (defmethod update-texture-device (view (device (eql :audio-frame)) texture-device)
-  (declare (ignore view device))
+  (declare (ignorable view device))
   (let* ((audio-data (audio-data view))
 	 (wavebuf (sc:buffer-data (getf audio-data :wavebuf)))
 	 (freqbuf (sc:buffer-data (getf audio-data :freqbuf)))
@@ -64,7 +77,7 @@
     (gl:tex-image-2d (tex :target) 0 :r32f 4096 2 0 :red :float scope-buffer)))
 
 (defmethod release-texture-device (view (device (eql :audio-frame)) texture-device)
-  (declare (ignore view device texture-device))
+  (declare (ignorable view device texture-device))
   (let* ((synth (getf (audio-data view) :scope-synth)))
     (sc:free synth)
     (setf (getf (audio-data view) :scope-synth) nil)))
@@ -72,22 +85,24 @@
 
 ;; previous frame
 (defmethod init-texture-device (view (device (eql :previous-frame)) texture-device)
-  (declare (ignore view texture-device))
-  (let ((texture (gl:gen-texture)))
+  (declare (ignorable view texture-device))
+  (let ((texture (gl:gen-texture))
+	(filter (filter :linear))
+	(wrap (wrap :clamp-to-edge)))
     (gl:bind-texture  (tex :target) texture)
-    (gl:tex-parameter (tex :target) :texture-mag-filter :linear)
-    (gl:tex-parameter (tex :target) :texture-min-filter :linear)
-    (gl:tex-parameter (tex :target) :texture-wrap-s :clamp-to-edge)
-    (gl:tex-parameter (tex :target) :texture-wrap-t :clamp-to-edge)
+    (gl:tex-parameter (tex :target) :texture-mag-filter filter)
+    (gl:tex-parameter (tex :target) :texture-min-filter filter)
+    (gl:tex-parameter (tex :target) :texture-wrap-s wrap)
+    (gl:tex-parameter (tex :target) :texture-wrap-t wrap)
     (gl:bind-texture  (tex :target) 0)
     (list device :tex-id texture :target (tex :target))))
 
 (defmethod update-texture-device (view (device (eql :previous-frame)) texture-device)
-  (declare (ignore view device))
+  (declare (ignorable view device))
   (gl:bind-texture (tex :target) (tex :tex-id)))
 
 (defmethod release-texture-device (view (device (eql :previous-frame)) texture-device)
-  (declare (ignore view device))
+  (declare (ignorable view device))
   (gl:delete-texture (tex :tex-id)))
 
 
@@ -95,7 +110,7 @@
 ;;; image
 ;;;
 (defmethod init-texture-device (view (device string) texture-device)
-  (declare (ignore view))
+  (declare (ignorable view))
   (let* ((full-path (uiop:truenamize device)))
     (assert full-path nil "~s : can't find image file" device)
     (setf full-path (namestring full-path))
@@ -106,7 +121,7 @@
       (init-texture-device view :image (append (list :src image) texture-device)))))
 
 (defmethod init-texture-device (view (device (eql :image)) texture-device)
-  (declare (ignore view))
+  (declare (ignorable view))
   (let* ((image (tex :src))
 	 (texture (gl:gen-texture))
 	 (format (ecase (cg:image-bits-per-pixel image)
@@ -114,24 +129,26 @@
 		   (24 (list :rgb8 :rgb))
 		   (8 (list :red :red))))
 	 (w (cg:image-width image))
-	 (h (cg:image-height image)))
+	 (h (cg:image-height image))
+	 (filter (filter :linear))
+	 (wrap (wrap :repeat)))
     (gl:bind-texture (tex :target) texture)
     (gl:tex-image-2d (tex :target) 0 (first format) w h 0 (second format) :unsigned-byte
 		     (cg:image-bitmap-data image))
-    (gl:tex-parameter (tex :target) :texture-mag-filter :linear)
-    (gl:tex-parameter (tex :target) :texture-min-filter :linear)
-    (gl:tex-parameter (tex :target) :texture-wrap-s :clamp-to-edge)
-    (gl:tex-parameter (tex :target) :texture-wrap-t :clamp-to-edge)
+    (gl:tex-parameter (tex :target) :texture-mag-filter filter)
+    (gl:tex-parameter (tex :target) :texture-min-filter filter)
+    (gl:tex-parameter (tex :target) :texture-wrap-s wrap)
+    (gl:tex-parameter (tex :target) :texture-wrap-t wrap)
     (gl:bind-texture  (tex :target) 0)
     (list device :tex-id texture :target (tex :target))))
 
 
 (defmethod update-texture-device (view (device (eql :image)) texture-device)
-  (declare (ignore view device))
+  (declare (ignorable view device))
   (gl:bind-texture (tex :target) (tex :tex-id)))
 
 (defmethod release-texture-device (view (device (eql :image)) texture-device)
-  (declare (ignore view device))
+  (declare (ignorable view device))
   (gl:delete-texture (tex :tex-id)))
 
 
@@ -140,21 +157,23 @@
 ;;; bitmap-context
 ;;;
 (defmethod init-texture-device (view (device (eql :bitmap-context)) texture-device)
-  (declare (ignore view))
+  (declare (ignorable view))
   (let* ((texture (gl:gen-texture))
+	 (filter (filter :linear))
+	 (wrap (wrap :repeat))
 	 (context (tex :src)))
     (gl:bind-texture (tex :target) texture)
-    (gl:tex-parameter (tex :target) :texture-mag-filter :linear)
-    (gl:tex-parameter (tex :target) :texture-min-filter :linear)
-    (gl:tex-parameter (tex :target) :texture-wrap-s :clamp-to-edge)
-    (gl:tex-parameter (tex :target) :texture-wrap-t :clamp-to-edge)
+    (gl:tex-parameter (tex :target) :texture-mag-filter filter)
+    (gl:tex-parameter (tex :target) :texture-min-filter filter)
+    (gl:tex-parameter (tex :target) :texture-wrap-s wrap)
+    (gl:tex-parameter (tex :target) :texture-wrap-t wrap)
     (gl:bind-texture  (tex :target) 0)
     (list device
 	  :src context
 	  :tex-id texture :target (tex :target))))
 
 (defmethod update-texture-device (view (device (eql :bitmap-context)) texture-device)
-  (declare (ignore view device))
+  (declare (ignorable view device))
   (let* ((context (tex :src))
 	 (w (cg:bitmap-width context))
 	 (h (cg:bitmap-height context))
@@ -163,7 +182,7 @@
     (gl:tex-image-2d (tex :target) 0 :rgba8 w h 0 :rgba :unsigned-byte data)))
 
 (defmethod release-texture-device (view (device (eql :bitmap-context)) texture-device)
-  (declare (ignore view device))
+  (declare (ignorable view device))
   (gl:delete-texture (tex :tex-id)))
 
 
@@ -171,7 +190,7 @@
 ;;; av-player
 ;;;
 (defmethod init-texture-device (view (device av:player) texture-device)
-  (declare (ignore view texture-device))
+  (declare (ignorable view texture-device))
   (let* ((texture-cache (core-video:make-texture-cache (cgl-context view)
 						       (pixel-format view))))
     (list device
@@ -179,11 +198,11 @@
 	  :target (tex :target))))
 
 (defmethod update-texture-device (view (device av:player) texture-device)
-  (declare (ignore view))
+  (declare (ignorable view))
   (av:with-texture-cache (device (tex :texture-cache) width height)))
 
 (defmethod release-texture-device (view (device av:player) texture-device)
-  (declare (ignore view device))
+  (declare (ignorable view device))
   (core-video:release-texture-cache (tex :texture-cache)))
 
 
@@ -194,12 +213,14 @@
 ;;; 
 (defmethod init-texture-device (view (device (eql :cg-screen-frame)) texture-device)
   (let* ((rect (tex :src))
-	 (texture (gl:gen-texture)))
+	 (texture (gl:gen-texture))
+	 (filter (filter :linear))
+	 (wrap (wrap :clamp-to-edge)))
     (gl:bind-texture  (tex :target) texture)
-    (gl:tex-parameter (tex :target) :texture-mag-filter :linear)
-    (gl:tex-parameter (tex :target) :texture-min-filter :linear)
-    (gl:tex-parameter (tex :target) :texture-wrap-s :clamp-to-edge)
-    (gl:tex-parameter (tex :target) :texture-wrap-t :clamp-to-edge)
+    (gl:tex-parameter (tex :target) :texture-mag-filter filter)
+    (gl:tex-parameter (tex :target) :texture-min-filter filter)
+    (gl:tex-parameter (tex :target) :texture-wrap-s wrap)
+    (gl:tex-parameter (tex :target) :texture-wrap-t wrap)
     (gl:bind-texture  (tex :target) 0)
     (unless rect (setf rect (list 0 0 200 200)))
     (destructuring-bind (x y w h)
@@ -227,7 +248,7 @@
 ;;; av-capture
 ;;; 
 (defmethod init-texture-device (view (device (eql :live-frame)) texture-device)
-  (declare (ignore view))
+  (declare (ignorable view))
   (let* ((index (tex :src)))
     (unless index (setf index 0))
     (let* ((capture (av:make-camera-capture index))
@@ -240,7 +261,7 @@
 	    :target (tex :target)))))
 
 (defmethod init-texture-device (view (device (eql :screen-frame)) texture-device)
-  (declare (ignore view))
+  (declare (ignorable view))
   (let* ((rect (tex :src))
 	 (fps (tex :fps)))
     (let* ((capture (av:make-screen-capture (when rect (apply #'ns:make-rect rect))
@@ -255,7 +276,7 @@
 
 
 (defmethod init-texture-device (view (device av:capture) texture-device)
-  (declare (ignore view texture-device))
+  (declare (ignorable view texture-device))
   (let* ((texture-cache (core-video:make-texture-cache (cgl-context view)
 						       (pixel-format view))))
     (list device
@@ -264,11 +285,11 @@
 	  :target (tex :target))))
 
 (defmethod update-texture-device (view (device av:capture) texture-device)
-  (declare (ignore view))
+  (declare (ignorable view))
   (av:with-texture-cache (device (tex :texture-cache) width height)))
 
 (defmethod release-texture-device (view (device av:capture) texture-device)
-  (declare (ignore view))
+  (declare (ignorable view))
   (when (tex :release-p)
     (ns:queue-for-event-loop
      (lambda ()
@@ -325,13 +346,15 @@
 (defmethod init-texture-device (view (device #+sbcl sb-kernel::simple-array-single-float
 					     #+ccl ccl::simple-short-float-vector)
 				texture-device)
-  (declare (ignore view texture-device))
-  (let* ((texture (gl:gen-texture)))
+  (declare (ignorable view texture-device))
+  (let* ((texture (gl:gen-texture))
+	 (filter (filter :nearest))
+	 (wrap (wrap :clamp-to-edge)))
     (gl:bind-texture  (tex :target) texture)
-    (gl:tex-parameter (tex :target) :texture-min-filter :nearest)
-    (gl:tex-parameter (tex :target) :texture-mag-filter :nearest)
-    (gl:tex-parameter (tex :target) :texture-wrap-s :clamp-to-edge)
-    (gl:tex-parameter (tex :target) :texture-wrap-t :clamp-to-edge)
+    (gl:tex-parameter (tex :target) :texture-min-filter filter)
+    (gl:tex-parameter (tex :target) :texture-mag-filter filter)
+    (gl:tex-parameter (tex :target) :texture-wrap-s wrap)
+    (gl:tex-parameter (tex :target) :texture-wrap-t wrap)
     (gl:bind-texture  (tex :target) 0)
     (list device
 	  :tex-id texture :target (tex :target))))
@@ -352,13 +375,15 @@
 
 ;;; Buffer of SuperCollider
 (defmethod init-texture-device (view (device sc::buffer) texture-device)
-  (declare (ignore view texture-device))
-  (let* ((texture (gl:gen-texture)))
+  (declare (ignorable view texture-device))
+  (let* ((texture (gl:gen-texture))
+	 (filter (filter :nearest))
+	 (wrap (wrap :clamp-to-edge)))
     (gl:bind-texture  (tex :target) texture)
-    (gl:tex-parameter (tex :target) :texture-min-filter :nearest)
-    (gl:tex-parameter (tex :target) :texture-mag-filter :nearest)
-    (gl:tex-parameter (tex :target) :texture-wrap-s :clamp-to-edge)
-    (gl:tex-parameter (tex :target) :texture-wrap-t :clamp-to-edge)
+    (gl:tex-parameter (tex :target) :texture-min-filter filter)
+    (gl:tex-parameter (tex :target) :texture-mag-filter filter)
+    (gl:tex-parameter (tex :target) :texture-wrap-s wrap)
+    (gl:tex-parameter (tex :target) :texture-wrap-t wrap)
     (gl:bind-texture  (tex :target) 0)
     (list device
 	  :tex-id texture :target (tex :target))))
@@ -382,15 +407,17 @@
 	 (height (height view))
 	 (texture (gl:gen-texture))
 	 (fbo nil)
-	 (canvas (make-instance (tex :src) :width width :height height :camera (camera view))))
+	 (canvas (make-instance (tex :src) :width width :height height :camera (camera view)))
+	 (filter (filter :linear))
+	 (wrap (wrap :clamp-to-edge)))
     (unwind-protect (progn
 		      (gl:bind-texture (tex :target) texture)
 		      (gl:tex-image-2d (tex :target) 0 :rgba8 width height 0 :rgba
 				       :unsigned-byte (cffi:null-pointer))
-		      (gl:tex-parameter (tex :target) :texture-min-filter :linear)
-		      (gl:tex-parameter (tex :target) :texture-mag-filter :linear)
-		      (gl:tex-parameter (tex :target) :texture-wrap-s :clamp-to-edge)
-		      (gl:tex-parameter (tex :target) :texture-wrap-t :clamp-to-edge)
+		      (gl:tex-parameter (tex :target) :texture-min-filter filter)
+		      (gl:tex-parameter (tex :target) :texture-mag-filter filter)
+		      (gl:tex-parameter (tex :target) :texture-wrap-s wrap)
+		      (gl:tex-parameter (tex :target) :texture-wrap-t wrap)
 		      (gl:bind-texture  (tex :target) 0)
 		      (setf fbo (gfx:make-fbo width height :multisample t :texture texture :target (tex :target)))
 		      (gfx:with-fbo (fbo) 
@@ -422,7 +449,7 @@
   			   (gfx::framebuffer (if (gl-canvas view) (fbo view) (gfx::output-fbo (fbo view))))))))
 
 (defmethod release-texture-device (view (device (eql :fbo)) texture-device)
-  (declare (ignore view device))
+  (declare (ignorable view device))
   (unwind-protect (progn
   		      (gfx:with-fbo ((tex :fbo))
   			(gfx:release (tex :gl-canvas)))
@@ -435,7 +462,7 @@
 
 ;;; iosurface
 (defmethod init-texture-device (view (device (eql :io-surface)) texture-device)
-  (declare (ignore device))
+  (declare (ignorable device))
   (let* ((core-profile (if (not (find :core-profile texture-device)) t
 			 (tex :core-profile)))
 	 (texture (gl:gen-texture))
