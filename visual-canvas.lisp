@@ -1,9 +1,26 @@
 (in-package :cl-visual)
 
-(defun gfx::clear-pipeline ()
+(defun gfx::add-uniform (name type)
+  (setf (gethash name gfx::*gfx-secondary-variables*) (glsl::make-code-object type (ppcre:regex-replace-all "-" (string-downcase name) "_"))))
+
+(defun gfx::clear-pipeline (&optional install-uniforms)
   (gfx:reinit-shader-system)
   (loop for pipeline being the hash-values of gfx::*all-pipeline-table*
- 	do (setf (gfx::%pipeline-used-funcs pipeline) nil)))
+ 	do (setf (gfx::%pipeline-used-funcs pipeline) nil))
+  (when install-uniforms
+    (loop for chan in '(ichannel0 ichannel1 ichannel2 ichannel3 ichannel4 ichannel5
+			ichannel6 ichannel7)
+	  do (gfx::add-uniform chan :sampler-2d-rect))
+    (loop for cont in '(icontrol0 icontrol1 icontrol2 icontrol3 icontrol4
+			icontrol5 icontrol6 icontrol7 icontrol8 icontrol9)
+	  do (gfx::add-uniform cont :float))
+    (loop for vol in '(ivolume0 ivolume1 ivolume2 ivolume3 ivolume4 ivolume5)
+	  do (gfx::add-uniform vol :float))
+    (gfx::add-uniform 'iglobal-time :float)
+    (gfx::add-uniform 'itime :float)
+    (gfx::add-uniform 'iresolution :vec2)))
+
+
 
 (gfx:defpipeline (draw-framebuffer :version 120) ((image :sampler-2d-rect)
 						  (image-resolution :float)
@@ -418,6 +435,6 @@
 
 (gfx::clear-pipeline)
 
-(export '(gfx::define-shader gfx::start-shader gfx::clear-pipeline gfx::reset-visual-camera) :gfx)
+(export '(gfx::define-shader gfx::start-shader gfx::clear-pipeline gfx::add-uniform gfx::reset-visual-camera) :gfx)
 
 
