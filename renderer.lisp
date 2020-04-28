@@ -206,7 +206,7 @@
       (gfx:with-fbo (draw-fbo)
 	(gl:viewport 0 0 w h)
 	(gl:clear :color-buffer-bit :depth-buffer-bit)
-	(setf (projection-matrix renderer) (kit.math:perspective-matrix 45.0 (/ w h) .1 10000.0)
+ 	(setf (projection-matrix renderer) (kit.math:perspective-matrix 45.0 (/ w h) .1 10000.0)
 	      (modelview-matrix renderer) (gfx:eval-camera (camera renderer))
 	      (render-time renderer) (funcall (reinit-time renderer)))
 	(loop for unit in '(:texture0 :texture1 :texture2 :texture3

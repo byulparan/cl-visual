@@ -76,7 +76,10 @@
     :accessor retina)
    (last-draw-time
     :initform 0
-    :accessor last-draw-time)))
+    :accessor last-draw-time)
+   (use-mouse
+    :initarg :use-mouse
+    :accessor use-mouse)))
 
 
 
@@ -274,6 +277,7 @@
 				      size
 				      (scene-ratio 1)
 				      user-fn
+				      (use-mouse t)
 				      syphon
 				      output-filter
 				      retina
@@ -296,6 +300,7 @@
 				       :scene-ratio ,scene-ratio
 				       :retina ,retina
 				       :gl-canvas ,gl-canvas))
+				(setf (use-mouse *visual-canvas*) ,use-mouse)
 				(ns:with-event-loop nil
 				  (ns:objc (window *visual-canvas*) "setTitle:"
 					   :pointer (ns:autorelease (ns:make-ns-string ,window-name)))
@@ -315,6 +320,7 @@
 	 (let* ((renderer (make-instance 'visual-renderer :reinit-time ,reinit-time
 	 				 :core-profile t))
 	 	(canvas (make-instance 'visual-canvas :x 0 :y 0 :w ,(if size (second size) 720) :h ,(if size (third size) 450)
+				       :use-mouse ,use-mouse
 	 			       :scene-ratio ,scene-ratio
 	 			       :renderer renderer
 	 			       :retina ,retina
@@ -389,16 +395,17 @@
        ',(car name))))
 
 
-(defmethod ns:mouse-wheel ((view visual-canvas) event localtion-x location-y)
-  (declare (ignore location-x location-y))
-  (let* ((x (float (ns:objc event "deltaX" :double) 1.0))
-  	 (y (float (ns:objc event "deltaY" :double) 1.0))
-  	 (camera (camera (renderer view))))
-    (if (> .004 (abs x)) (setf x 0.0))
-    (if (> .004 (abs y)) (setf y 0.0))
-    (cond ((ns:ctrl-p event) (gfx:track-mouse-zoom camera  (- x) (- y) .1))
-    	  ((ns:shift-p event) (gfx:track-mouse-pan camera (- x) y .1))
-    	  (t (gfx:track-mouse-spin camera x (- y) .1)))))
+(defmethod ns:mouse-wheel ((view visual-canvas) event location-x location-y)
+  (declare (ignorable location-x location-y))
+  (when (use-mouse view)
+    (let* ((x (float (ns:objc event "deltaX" :double) 1.0))
+  	   (y (float (ns:objc event "deltaY" :double) 1.0))
+  	   (camera (camera (renderer view))))
+      (if (> .004 (abs x)) (setf x 0.0))
+      (if (> .004 (abs y)) (setf y 0.0))
+      (cond ((ns:ctrl-p event) (gfx:track-mouse-zoom camera  (- x) (- y) .1))
+    	    ((ns:shift-p event) (gfx:track-mouse-pan camera (- x) y .1))
+    	    (t (gfx:track-mouse-spin camera x (- y) .1))))))
 
 (defun gfx::reset-visual-camera (&key (eye-x 0.0) (eye-y 0.0) (eye-z 5.0)
 				      (center-x 0.0) (center-y 0.0) (center-z 0.0))
