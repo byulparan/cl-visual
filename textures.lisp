@@ -528,3 +528,106 @@
     (ns:release (tex :io-surface))
     (gl:delete-texture (tex :tex-id))))
 
+
+;;; shader
+(defclass shader-surface (gfx:gl-canvas)
+  ((renderer :initarg :renderer :reader renderer)
+   (shader :initarg :shader :reader shader)))
+
+(defmethod gfx:draw ((view shader-surface))
+  (gl:clear-color .0 .0 .0 1.0)
+  (gl:clear :color-buffer-bit :depth-buffer-bit)
+  (let* ((renderer (renderer view))
+	 (w (gfx:width view))
+	 (h (gfx:height view))
+	 (time (render-time renderer)))
+    (gl:viewport 0 0 w h)
+    (apply (shader view) view `(:triangles 0 6 ,(gpu-stream renderer)
+				:ichannel0 0 :ichannel1 1 :ichannel2 2 :ichannel3 3
+				:ichannel4 4 :ichannel5 5 :ichannel6 6 :ichannel7 7
+				:iglobal-time ,time :itime ,time
+				:ivolume0 ,(sc:control-get-sync *ivolume-index*)
+				,@(loop for i from 0 below (- *num-ivolume* 1)
+					append `(,(intern (format nil "IVOLUME~d" (+ i 1)) :keyword)
+						 ,(sc:control-get-sync (+ *ivolume-index* i 1))))
+				,@(loop for i from 0 below *num-icontrol*
+					append
+					`(,(intern (format nil "ICONTROL~d" i) :keyword)
+					  ,(sc:control-get-sync (+ *icontrol-index* i))))
+				:iresolution ,(list w h)
+				:camera ,(list (gfx::eye-x (camera renderer))
+					       (gfx::eye-y (camera renderer))
+					       (gfx::eye-z (camera renderer)))
+				:lookat ,(list (gfx::center-x (camera renderer))
+					       (gfx::center-y (camera renderer))
+					       (gfx::center-z (camera renderer)))
+				:projection-matrix ,(projection-matrix renderer)
+				:modelview-matrix ,(modelview-matrix renderer)))))
+
+(defmethod init-texture-device (view (device (eql :shader)) texture-device)
+  (declare (ignorable device))
+  (let* ((core-profile (if (not (find :core-profile texture-device)) t
+			 (tex :core-profile)))
+	 (texture (gl:gen-texture))
+	 (fixed-size (tex :size))
+	 (width (if fixed-size (first (tex :size)) (width view)))
+	 (height (if fixed-size (second (tex :size)) (height view)))
+	 (renderer (make-instance 'renderer :width width :height height :core-profile core-profile))
+	 (surface (make-instance 'shader-surface :width width :height height
+				 :renderer view
+				 :shader (tex :src))))
+    (resize-framebuffer renderer width height)
+    (let* ((io-surface (io-surface:lookup (io-surface:id (iosurface renderer)))))
+      (with-cgl-context ((cgl-context renderer))
+	(gfx:with-fbo ((fbo renderer))
+	  (gfx:init surface)))
+      (gl:bind-texture (tex :target) texture)
+      (cgl:tex-image-io-surface-2d (cgl-context view) (tex :target)
+				   :rgba width height :bgra
+				   :unsigned-int-8-8-8-8-rev io-surface 0)
+      (gl:bind-texture (tex :target) 0)
+      (list device
+	    :tex-id texture
+	    :target (tex :target)
+	    :renderer renderer
+	    :surface surface
+	    :io-surface io-surface
+	    :fixed-size fixed-size))))
+
+(defmethod update-texture-device (view (device (eql :shader)) texture-device)
+  (declare (ignore device))
+  (let* ((width (width view))
+  	 (height (height view))
+  	 (renderer (tex :renderer))
+  	 (surface (tex :surface)))
+    (when (and (not (tex :fixed-size))
+	       (or (/= width (width renderer))
+		   (/= height (height renderer))))
+      (resize-framebuffer renderer width height)
+      (setf (gfx:width surface) width (gfx:height surface) height)
+      (ns:release (tex :io-surface))
+      (let* ((io-surface (io-surface:lookup (io-surface:id (iosurface renderer)))))
+	(setf (tex :io-surface) io-surface)
+	(gl:bind-texture (tex :target) (tex :tex-id))
+	(cgl:tex-image-io-surface-2d (cgl-context view) (tex :target)
+				     :rgba width height :bgra
+				     :unsigned-int-8-8-8-8-rev (tex :io-surface) 0)
+	(gl:bind-texture (tex :target) 0)))
+    (gl:bind-texture (tex :target) (tex :tex-id))
+    (with-cgl-context ((cgl-context renderer))
+      (gfx:with-fbo ((fbo renderer))
+	(gfx:draw surface))
+      (gl:flush))))
+
+(defmethod release-texture-device (view (device (eql :shader)) texture-device)
+  (declare (ignore view device))
+  (let* ((renderer (tex :renderer))
+  	 (surface (tex :surface)))
+    (with-cgl-context ((cgl-context renderer))
+      (gfx:with-fbo ((fbo renderer))
+	(gfx:release surface))
+      (gfx:release-context surface))
+    (release renderer)
+    (ns:release (tex :io-surface))
+    (gl:delete-texture (tex :tex-id))))
+
