@@ -1,7 +1,7 @@
 (in-package :gfx)
 
 ;;; GL-Canvas
-(defclass gl-canvas (gl-context)
+(defclass gl-canvas (shader-environment)
   ((width :initarg :width :accessor width)
    (height :initarg :height :accessor height)
    (camera :initarg :camera :reader camera)

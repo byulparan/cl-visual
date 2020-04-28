@@ -456,7 +456,7 @@
   (unwind-protect (progn
   		      (gfx:with-fbo ((tex :fbo))
   			(gfx:release (tex :gl-canvas)))
-  		      (gfx:release-context (tex :gl-canvas))
+  		      (gfx:release-environment (tex :gl-canvas))
   		      (gfx:release-fbo (tex :fbo))
   		      (gl:delete-texture (tex :tex-id)))
       (gl:bind-framebuffer :framebuffer
@@ -526,7 +526,7 @@
     (with-cgl-context ((cgl-context renderer))
       (gfx:with-fbo ((fbo renderer))
 	(gfx:release canvas))
-      (gfx:release-context canvas))
+      (gfx:release-environment canvas))
     (release renderer)
     (ns:release (tex :io-surface))
     (gl:delete-texture (tex :tex-id))))
@@ -657,7 +657,7 @@
     (with-cgl-context ((cgl-context renderer))
       (gfx:with-fbo ((fbo renderer))
 	(gfx:release surface))
-      (gfx:release-context surface))
+      (gfx:release-environment surface))
     (release renderer)
     (ns:release (tex :io-surface))
     (gl:delete-texture (tex :tex-id))))

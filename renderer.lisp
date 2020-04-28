@@ -74,7 +74,7 @@
 ;;; ================================================================================
 ;;;  visual-renderer
 ;;;
-(defclass visual-renderer (renderer gfx:gl-context)
+(defclass visual-renderer (renderer gfx:shader-environment)
   ((gpu-stream
     :reader gpu-stream
     :initform (gfx:make-gpu-stream '((pos :vec2))
@@ -163,7 +163,7 @@
       (setf (gfx:width canvas) (width renderer)
 	    (gfx:height canvas) (height renderer))
       (gfx:release canvas)
-      (gfx:release-context canvas))
+      (gfx:release-environment canvas))
     (setf (gl-canvas renderer) nil)
     (when-let ((canvas (getf options :gl-canvas)))
       (setf (gl-canvas renderer) (make-instance canvas :camera (camera renderer)
@@ -235,6 +235,6 @@
   (with-cgl-context ((cgl-context renderer))
     (loop for device in (texture-devices renderer)
 	  do (release-texture-device renderer (car device) (cdr device)))
-    (gfx:release-context renderer))
+    (gfx:release-environment renderer))
   (call-next-method))
 

@@ -14,7 +14,7 @@
   (:fragment ((c :vec2))
 	     (texture image (* c gfx::iresolution image-resolution))))
 
-(defclass visual-canvas (ns:opengl-view gfx:gl-context)
+(defclass visual-canvas (ns:opengl-view gfx:shader-environment)
   ((mailbox
     :initarg :mailbox
     :initform (make-mailbox)
@@ -254,7 +254,7 @@
 
 (defmethod ns:release ((view visual-canvas))
   (release (renderer view))
-  (gfx:release-context view)
+  (gfx:release-environment view)
   (ns:release (iosurface view))
   (ns:release (ci-context view))
   (destroy-fps-info (fps-info view))
