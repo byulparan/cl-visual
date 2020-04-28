@@ -473,9 +473,8 @@
 	 (width (if fixed-size (first (tex :size)) (width view)))
 	 (height (if fixed-size (second (tex :size)) (height view)))
 	 (renderer (make-instance 'renderer :width width :height height :core-profile core-profile))
-	 (use-mouse (tex :use-mouse))
 	 (gl-canvas (make-instance (tex :src) :width width :height height
-				   :camera (if use-mouse (camera view)
+				   :camera (if (tex :shared-camera) (camera view)
 					     (make-instance 'gfx:camera)))))
     (resize-framebuffer renderer width height)
     (let* ((io-surface (io-surface:lookup (io-surface:id (iosurface renderer)))))
@@ -540,7 +539,8 @@
   ((renderer :initarg :renderer :reader renderer)
    (shader :initarg :shader :reader shader)
    (texture-devices :initarg :texture-devices :accessor texture-devices)
-   (gl-canvas :initarg :gl-canvas :accessor gl-canvas)))
+   (gl-canvas :initarg :gl-canvas :accessor gl-canvas)
+   (fn :initarg :fn :reader fn)))
 
 (defmethod gfx:init ((view shader-surface))
   (let* ((devices (texture-devices view)))
@@ -568,6 +568,8 @@
     (gl:viewport 0 0 w h)
     (gl:clear-color .0 .0 .0 1.0)
     (gl:clear :color-buffer-bit :depth-buffer-bit)
+    (when (fn view)
+      (funcall (fn view) view))
     (setf (gfx:projection-matrix view) (kit.math:perspective-matrix 45.0 (/ w h) .1 10000.0)
 	  (gfx:modelview-matrix view) (gfx:eval-camera (gfx:camera view)))
     (loop for unit in '(:texture0 :texture1 :texture2 :texture3
@@ -623,12 +625,13 @@
 	 (height (if fixed-size (second (tex :size)) (height view)))
 	 (renderer (make-instance 'renderer :width width :height height :core-profile core-profile))
 	 (surface (make-instance 'shader-surface :width width :height height
-				 :camera (if (tex :use-mouse) (camera view)
+				 :camera (if (tex :shared-camera) (camera view)
 					   (make-instance 'gfx:camera))
 				 :renderer view
 				 :shader (tex :src)
 				 :texture-devices (tex :textures)
-				 :gl-canvas (tex :gl-canvas))))
+				 :gl-canvas (tex :gl-canvas)
+				 :fn (tex :fn))))
     (resize-framebuffer renderer width height)
     (let* ((io-surface (io-surface:lookup (io-surface:id (iosurface renderer)))))
       (with-cgl-context ((cgl-context renderer))
