@@ -250,7 +250,7 @@
 
 (defvar *visual-canvas* nil)
 (defvar *last-commands* nil)
-(defvar *last-ichannel-targets* nil)
+(defvar *ichannel-table* (make-hash-table))
 
 (defmethod ns:release ((view visual-canvas))
   (release (renderer view))
@@ -343,6 +343,17 @@
 	   (setf *visual-canvas* canvas)
 	   (ns:window-show window))))))
 
+(defun reinterpret-shader-p (name ichannel-targets)
+  (when *visual-canvas*
+    (let* ((renderer (renderer *visual-canvas*))
+	   (devices (texture-devices renderer)))
+      (and
+       (or (eql name (shader renderer))
+	   (loop for dev in devices
+		 when (and (eql :shader (car dev))
+			   (eql name (getf (cdr dev) :src)))
+		   do (return t)))
+       (not (equal (gethash name *ichannel-table*) ichannel-targets))))))
 
 (defmacro gfx::define-shader (name &body body)
   (let ((name (ensure-list name))
@@ -371,12 +382,10 @@
 	 (:fragment ((vfuv :vec2))
 		    (progn ,@body)))
        ;; reinterpret ======================================================================
-       (when (and *visual-canvas*
-		  (eql ',(car name) (shader (renderer *visual-canvas*)))
-		  (not (equal ',ichannel-targets *last-ichannel-targets*)))
-	 (gfx::start-shader ,(car name) ,@*last-commands*)
+       (when (reinterpret-shader-p ',(car name) ',ichannel-targets)
+	 (gfx::start-shader ,(and *visual-canvas* (shader (renderer *visual-canvas*))) ,@*last-commands*)
 	 (format t "~&reinterpret shader: ~a~%" ',(car name)))
-       (setf *last-ichannel-targets* ',ichannel-targets)
+       (setf (gethash ',(car name) *ichannel-table*) ',ichannel-targets)
        ',(car name))))
 
 

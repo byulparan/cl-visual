@@ -617,6 +617,7 @@
 				   :unsigned-int-8-8-8-8-rev io-surface 0)
       (gl:bind-texture (tex :target) 0)
       (list device
+	    :src (tex :src)
 	    :tex-id texture
 	    :target (tex :target)
 	    :renderer renderer
