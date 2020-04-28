@@ -9,9 +9,12 @@
        (if ,filter ,filter ,default))))
 
 (defmacro wrap (default)
-  (alexandria:with-gensyms (wrap)
-    `(let* ((,wrap (getf texture-device :wrap)))
-       (if ,wrap ,wrap ,default))))
+  (alexandria:with-gensyms (target wrap)
+    `(let* ((,target (getf texture-device :target))
+	    (,wrap (getf texture-device :wrap)))
+       (cond ((eql ,target :texture-rectangle) :clamp-to-edge)
+	     (,wrap ,wrap)
+	     (t ,default)))))
 
 
 ;;; 
