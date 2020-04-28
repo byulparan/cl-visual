@@ -45,7 +45,7 @@
 
 (defmethod init-texture-device (view (device (eql :audio-frame)) texture-device)
   (let* ((frame-bus (tex :frame-bus))
-	 (synth (getf (audio-data view) :scope-synth))
+	 (synth (getf (audio-data *visual-canvas*) :scope-synth))
 	 (texture (gl:gen-texture))
 	 (filter (filter :linear))
 	 (wrap (wrap :clamp-to-edge)))
@@ -63,7 +63,7 @@
 
 (defmethod update-texture-device (view (device (eql :audio-frame)) texture-device)
   (declare (ignorable view device))
-  (let* ((audio-data (audio-data view))
+  (let* ((audio-data (audio-data *visual-canvas*))
 	 (wavebuf (sc:buffer-data (getf audio-data :wavebuf)))
 	 (freqbuf (sc:buffer-data (getf audio-data :freqbuf)))
 	 (scope-buffer (getf audio-data :scope-buffer)))
@@ -78,9 +78,9 @@
 
 (defmethod release-texture-device (view (device (eql :audio-frame)) texture-device)
   (declare (ignorable view device texture-device))
-  (let* ((synth (getf (audio-data view) :scope-synth)))
+  (let* ((synth (getf (audio-data *visual-canvas*) :scope-synth)))
     (sc:free synth)
-    (setf (getf (audio-data view) :scope-synth) nil)))
+    (setf (getf (audio-data *visual-canvas*) :scope-synth) nil)))
 
 
 ;; previous frame
