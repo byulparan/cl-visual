@@ -93,6 +93,8 @@
    (reinit-time
     :initarg :reinit-time
     :accessor reinit-time)
+   (render-time
+    :accessor render-time)
    (texture-devices
     :initform nil
     :accessor texture-devices)
@@ -169,9 +171,7 @@
       (gfx:init (gl-canvas renderer)))))
 
 (defun draw-shader (renderer w h)
-  (setf (projection-matrix renderer) (kit.math:perspective-matrix 45.0 (/ w h) .1 10000.0)
-	(modelview-matrix renderer) (gfx:eval-camera (camera renderer)))
-  (let* ((time (funcall (reinit-time renderer))))
+  (let* ((time (render-time renderer)))
     (apply (shader renderer) renderer `(:triangles 0 6 ,(gpu-stream renderer)
 					:ichannel0 0 :ichannel1 1 :ichannel2 2 :ichannel3 3
 					:ichannel4 4 :ichannel5 5 :ichannel6 6 :ichannel7 7
@@ -192,12 +192,12 @@
 						       (gfx::center-y (camera renderer))
 						       (gfx::center-z (camera renderer)))
 					:projection-matrix ,(projection-matrix renderer)
-					:modelview-matrix ,(modelview-matrix renderer)))
-    (when-let ((canvas (gl-canvas renderer)))
-      (setf (gfx:width canvas) w (gfx:height canvas) h)
-      (setf (gfx:projection-matrix canvas) (projection-matrix renderer)
-	    (gfx:modelview-matrix canvas) (modelview-matrix renderer))
-      (gfx:draw canvas))))
+					:modelview-matrix ,(modelview-matrix renderer))))
+  (when-let ((canvas (gl-canvas renderer)))
+    (setf (gfx:width canvas) w (gfx:height canvas) h)
+    (setf (gfx:projection-matrix canvas) (projection-matrix renderer)
+	  (gfx:modelview-matrix canvas) (modelview-matrix renderer))
+    (gfx:draw canvas)))
 
 (defun render (renderer)
   (with-cgl-context ((cgl-context renderer))
@@ -208,6 +208,9 @@
       (gfx:with-fbo (draw-fbo)
 	(gl:viewport 0 0 w h)
 	(gl:clear :color-buffer-bit :depth-buffer-bit)
+	(setf (projection-matrix renderer) (kit.math:perspective-matrix 45.0 (/ w h) .1 10000.0)
+	      (modelview-matrix renderer) (gfx:eval-camera (camera renderer))
+	      (render-time renderer) (funcall (reinit-time renderer)))
 	(loop for unit in '(:texture0 :texture1 :texture2 :texture3
 			    :texture4 :texture5 :texture6 :texture7)
 	      for device in (texture-devices renderer)
