@@ -536,7 +536,8 @@
 (defclass shader-surface (gfx:gl-canvas)
   ((renderer :initarg :renderer :reader renderer)
    (shader :initarg :shader :reader shader)
-   (texture-devices :initarg :texture-devices :accessor texture-devices)))
+   (texture-devices :initarg :texture-devices :accessor texture-devices)
+   (gl-canvas :initarg :gl-canvas :accessor gl-canvas)))
 
 (defmethod gfx:init ((view shader-surface))
   (let* ((devices (texture-devices view)))
@@ -550,7 +551,10 @@
 	      for target in targets
 	      collect (let ((device (alexandria:ensure-list device)))
 			(init-texture-device view (car device) (append (cdr device)
-								       (list :target target)))))))))
+								       (list :target target))))))
+      (when (gl-canvas view)
+	(setf (gl-canvas view) (make-instance (gl-canvas view) :width (gfx:width view) :height (gfx:height view)))
+	(gfx:init (gl-canvas view))))))
 
 (defmethod gfx:draw ((view shader-surface))
   (let* ((renderer (renderer view))
@@ -565,6 +569,7 @@
 	  for device in (texture-devices view)
 	  do (gl:active-texture unit)
 	     (update-texture-device view (car device) (cdr device)))
+    (gl:enable :depth-test)
     (apply (shader view) view `(:triangles 0 6 ,(gpu-stream renderer)
 				:ichannel0 0 :ichannel1 1 :ichannel2 2 :ichannel3 3
 				:ichannel4 4 :ichannel5 5 :ichannel6 6 :ichannel7 7
@@ -585,9 +590,18 @@
 					       (gfx::center-y (camera renderer))
 					       (gfx::center-z (camera renderer)))
 				:projection-matrix ,(projection-matrix renderer)
-				:modelview-matrix ,(modelview-matrix renderer)))))
+				:modelview-matrix ,(modelview-matrix renderer)))
+    (when (gl-canvas view)
+      (setf (gfx:width (gl-canvas view)) w (gfx:height (gl-canvas view)) h)
+      (setf (gfx:projection-matrix (gl-canvas view)) (projection-matrix renderer)
+	    (gfx:modelview-matrix (gl-canvas view)) (modelview-matrix renderer))
+      (gfx:draw (gl-canvas view)))
+    (gl:disable :depth-test)))
 
 (defmethod gfx:release ((view shader-surface))
+  (when (gl-canvas view)
+    (gfx:release (gl-canvas view))
+    (gfx:release-environment (gl-canvas view)))
   (loop for device in (texture-devices view)
 	do (release-texture-device view (car device) (cdr device))))
 
@@ -605,7 +619,8 @@
 	 (surface (make-instance 'shader-surface :width width :height height
 				 :renderer view
 				 :shader (tex :src)
-				 :texture-devices (tex :textures))))
+				 :texture-devices (tex :textures)
+				 :gl-canvas (tex :gl-canvas))))
     (resize-framebuffer renderer width height)
     (let* ((io-surface (io-surface:lookup (io-surface:id (iosurface renderer)))))
       (with-cgl-context ((cgl-context renderer))

@@ -160,8 +160,6 @@
     (reinit-shader renderer (getf options :shader))
     (reinit-textures renderer options)
     (when-let ((canvas (gl-canvas renderer)))
-      (setf (gfx:width canvas) (width renderer)
-	    (gfx:height canvas) (height renderer))
       (gfx:release canvas)
       (gfx:release-environment canvas))
     (setf (gl-canvas renderer) nil)
@@ -233,6 +231,9 @@
 
 (defmethod release ((renderer visual-renderer))
   (with-cgl-context ((cgl-context renderer))
+    (when-let ((canvas (gl-canvas renderer)))
+      (gfx:release canvas)
+      (gfx:release-environment canvas))
     (loop for device in (texture-devices renderer)
 	  do (release-texture-device renderer (car device) (cdr device)))
     (gfx:release-environment renderer))
