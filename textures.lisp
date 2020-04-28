@@ -114,10 +114,10 @@
   (let* ((full-path (uiop:truenamize device)))
     (assert full-path nil "~s : can't find image file" device)
     (setf full-path (namestring full-path))
-    (let* ((image (gethash full-path (tex-image-table view))))
+    (let* ((image (gethash full-path (tex-image-table (renderer *visual-canvas*)))))
       (unless image
 	(setf image (cg:load-image full-path)
-	      (gethash full-path (tex-image-table view)) image))
+	      (gethash full-path (tex-image-table (renderer *visual-canvas*))) image))
       (init-texture-device view :image (append (list :src image) texture-device)))))
 
 (defmethod init-texture-device (view (device (eql :image)) texture-device)
@@ -532,16 +532,36 @@
 ;;; shader
 (defclass shader-surface (gfx:gl-canvas)
   ((renderer :initarg :renderer :reader renderer)
-   (shader :initarg :shader :reader shader)))
+   (shader :initarg :shader :reader shader)
+   (texture-devices :initarg :texture-devices :accessor texture-devices)))
+
+(defmethod gfx:init ((view shader-surface))
+  (let* ((devices (texture-devices view)))
+    (let* ((pipeline (gethash (shader view) gfx::*all-pipeline-table*))
+	   (targets (mapcar (lambda (type) (ecase type
+					     (:sampler-2d :texture-2d)
+					     (:sampler-2d-rect :texture-rectangle)))
+			    (mapcar #'second (subseq (gfx::%pipeline-uniforms pipeline) 0 (length devices))))))
+      (setf (texture-devices view)
+	(loop for device in devices
+	      for target in targets
+	      collect (let ((device (alexandria:ensure-list device)))
+			(init-texture-device view (car device) (append (cdr device)
+								       (list :target target)))))))))
 
 (defmethod gfx:draw ((view shader-surface))
-  (gl:clear-color .0 .0 .0 1.0)
-  (gl:clear :color-buffer-bit :depth-buffer-bit)
   (let* ((renderer (renderer view))
 	 (w (gfx:width view))
 	 (h (gfx:height view))
 	 (time (render-time renderer)))
     (gl:viewport 0 0 w h)
+    (gl:clear-color .0 .0 .0 1.0)
+    (gl:clear :color-buffer-bit :depth-buffer-bit)
+    (loop for unit in '(:texture0 :texture1 :texture2 :texture3
+			:texture4 :texture5 :texture6 :texture7)
+	  for device in (texture-devices view)
+	  do (gl:active-texture unit)
+	     (update-texture-device view (car device) (cdr device)))
     (apply (shader view) view `(:triangles 0 6 ,(gpu-stream renderer)
 				:ichannel0 0 :ichannel1 1 :ichannel2 2 :ichannel3 3
 				:ichannel4 4 :ichannel5 5 :ichannel6 6 :ichannel7 7
@@ -564,6 +584,12 @@
 				:projection-matrix ,(projection-matrix renderer)
 				:modelview-matrix ,(modelview-matrix renderer)))))
 
+(defmethod gfx:release ((view shader-surface))
+  (loop for device in (texture-devices view)
+	do (release-texture-device view (car device) (cdr device))))
+
+
+
 (defmethod init-texture-device (view (device (eql :shader)) texture-device)
   (declare (ignorable device))
   (let* ((core-profile (if (not (find :core-profile texture-device)) t
@@ -575,7 +601,8 @@
 	 (renderer (make-instance 'renderer :width width :height height :core-profile core-profile))
 	 (surface (make-instance 'shader-surface :width width :height height
 				 :renderer view
-				 :shader (tex :src))))
+				 :shader (tex :src)
+				 :texture-devices (tex :textures))))
     (resize-framebuffer renderer width height)
     (let* ((io-surface (io-surface:lookup (io-surface:id (iosurface renderer)))))
       (with-cgl-context ((cgl-context renderer))
