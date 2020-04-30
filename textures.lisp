@@ -134,14 +134,18 @@
 	 (w (cg:image-width image))
 	 (h (cg:image-height image))
 	 (filter (filter :linear))
-	 (wrap (wrap :repeat)))
+	 (wrap (wrap :repeat))
+	 (mipmap (tex :mipmap))
+	 (use-mipmap (and mipmap (eql (tex :target) :texture-2d))))
     (gl:bind-texture (tex :target) texture)
     (gl:tex-image-2d (tex :target) 0 (first format) w h 0 (second format) :unsigned-byte
 		     (cg:image-bitmap-data image))
     (gl:tex-parameter (tex :target) :texture-mag-filter filter)
-    (gl:tex-parameter (tex :target) :texture-min-filter filter)
+    (gl:tex-parameter (tex :target) :texture-min-filter (if use-mipmap :linear-mipmap-linear filter))
     (gl:tex-parameter (tex :target) :texture-wrap-s wrap)
     (gl:tex-parameter (tex :target) :texture-wrap-t wrap)
+    (when use-mipmap
+      (gl:generate-mipmap (tex :target)))
     (gl:bind-texture  (tex :target) 0)
     (list device :tex-id texture :target (tex :target))))
 
