@@ -565,10 +565,9 @@
 	(gfx:init (gl-canvas view))))))
 
 (defmethod gfx:draw ((view shader-surface))
-  (let* ((renderer (renderer view))
-	 (w (gfx:width view))
+  (let* ((w (gfx:width view))
 	 (h (gfx:height view))
-	 (time (render-time renderer)))
+	 (time (render-time (renderer *visual-canvas*))))
     (gl:viewport 0 0 w h)
     (gl:clear-color .0 .0 .0 1.0)
     (gl:clear :color-buffer-bit :depth-buffer-bit)
@@ -582,7 +581,7 @@
 	  do (gl:active-texture unit)
 	     (update-texture-device view (car device) (cdr device)))
     (gl:enable :depth-test)
-    (apply (shader view) view `(:triangles 0 6 ,(gpu-stream renderer)
+    (apply (shader view) view `(:triangles 0 6 ,(gpu-stream (renderer *visual-canvas*))
 				:ichannel0 0 :ichannel1 1 :ichannel2 2 :ichannel3 3
 				:ichannel4 4 :ichannel5 5 :ichannel6 6 :ichannel7 7
 				:iglobal-time ,time :itime ,time
@@ -618,6 +617,15 @@
 	do (release-texture-device view (car device) (cdr device))))
 
 
+(defmethod cgl-context ((view shader-surface))
+  (cgl-context (renderer view)))
+
+(defmethod width ((view shader-surface))
+  (gfx:width view))
+
+(defmethod height ((view shader-surface))
+  (gfx:height view))
+
 
 (defmethod init-texture-device (view (device (eql :shader)) texture-device)
   (declare (ignorable device))
@@ -631,7 +639,7 @@
 	 (surface (make-instance 'shader-surface :width width :height height
 				 :camera (if (tex :shared-camera) (camera view)
 					   (make-instance 'gfx:camera))
-				 :renderer view
+				 :renderer renderer
 				 :shader (tex :src)
 				 :texture-devices (tex :textures)
 				 :gl-canvas (tex :gl-canvas)
@@ -650,7 +658,6 @@
 	    :src (tex :src)
 	    :tex-id texture
 	    :target (tex :target)
-	    :renderer renderer
 	    :surface surface
 	    :io-surface io-surface
 	    :fixed-size fixed-size))))
@@ -659,8 +666,8 @@
   (declare (ignore device))
   (let* ((width (width view))
   	 (height (height view))
-  	 (renderer (tex :renderer))
-  	 (surface (tex :surface)))
+  	 (surface (tex :surface))
+	 (renderer (renderer surface)))
     (when (and (not (tex :fixed-size))
 	       (or (/= width (width renderer))
 		   (/= height (height renderer))))
@@ -682,8 +689,8 @@
 
 (defmethod release-texture-device (view (device (eql :shader)) texture-device)
   (declare (ignore view device))
-  (let* ((renderer (tex :renderer))
-  	 (surface (tex :surface)))
+  (let* ((surface (tex :surface))
+	 (renderer (renderer surface)))
     (with-cgl-context ((cgl-context renderer))
       (gfx:with-fbo ((fbo renderer))
 	(gfx:release surface))
