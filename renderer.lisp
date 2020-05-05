@@ -170,6 +170,7 @@
 
 (defun draw-shader (renderer w h)
   (let* ((time (render-time renderer)))
+    (gl:enable :depth-test)
     (apply (shader renderer) renderer `(:triangles 0 6 ,(gpu-stream renderer)
 					:ichannel0 0 :ichannel1 1 :ichannel2 2 :ichannel3 3
 					:ichannel4 4 :ichannel5 5 :ichannel6 6 :ichannel7 7
@@ -190,7 +191,8 @@
 						       (gfx::center-y (camera renderer))
 						       (gfx::center-z (camera renderer)))
 					:projection-matrix ,(projection-matrix renderer)
-					:modelview-matrix ,(modelview-matrix renderer))))
+					:modelview-matrix ,(modelview-matrix renderer)))
+    (gl:disable :depth-test))
   (when-let ((canvas (gl-canvas renderer)))
     (setf (gfx:width canvas) w (gfx:height canvas) h)
     (setf (gfx:projection-matrix canvas) (projection-matrix renderer)
@@ -214,9 +216,7 @@
 	      for device in (texture-devices renderer)
 	      do (gl:active-texture unit)
 		 (update-texture-device renderer (car device) (cdr device)))
-	(gl:enable :depth-test)
-	(draw-shader renderer w h)
-	(gl:disable :depth-test))
+	(draw-shader renderer w h))
       (gfx:with-fbo ((gfx::output-fbo (fbo renderer)))
 	(loop for unit in '(:texture0 :texture1 :texture2 :texture3
 			    :texture4 :texture5 :texture6 :texture7)
