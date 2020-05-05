@@ -489,23 +489,21 @@
     (resize-framebuffer renderer width height)
     (when output
       (setf (gethash output *io-surface-table*) (iosurface renderer)))
-    (let* ((io-surface (io-surface:lookup (io-surface:id (iosurface renderer)))))
-      (with-cgl-context ((cgl-context renderer))
-	(gfx:with-fbo ((fbo renderer))
-	  (gfx:init gl-canvas)))
-      (gl:bind-texture (tex :target) texture)
-      (cgl:tex-image-io-surface-2d (cgl-context view) (tex :target)
-				   :rgba width height :bgra
-				   :unsigned-int-8-8-8-8-rev io-surface 0)
-      (gl:bind-texture (tex :target) 0)
-      (list device
-	    :tex-id texture
-	    :target (tex :target)
-	    :renderer renderer
-	    :gl-canvas gl-canvas
-	    :io-surface io-surface
-	    :fixed-size fixed-size
-	    :output output))))
+    (with-cgl-context ((cgl-context renderer))
+      (gfx:with-fbo ((fbo renderer))
+	(gfx:init gl-canvas)))
+    (gl:bind-texture (tex :target) texture)
+    (cgl:tex-image-io-surface-2d (cgl-context view) (tex :target)
+				 :rgba width height :bgra
+				 :unsigned-int-8-8-8-8-rev (iosurface renderer) 0)
+    (gl:bind-texture (tex :target) 0)
+    (list device
+	  :tex-id texture
+	  :target (tex :target)
+	  :renderer renderer
+	  :gl-canvas gl-canvas
+	  :fixed-size fixed-size
+	  :output output)))
 
 (defmethod update-texture-device (view (device (eql :gl-canvas)) texture-device)
   (declare (ignore device))
@@ -521,14 +519,11 @@
       (when output
 	(setf (gethash output *io-surface-table*) (iosurface renderer)))
       (setf (gfx:width canvas) width (gfx:height canvas) height)
-      (ns:release (tex :io-surface))
-      (let* ((io-surface (io-surface:lookup (io-surface:id (iosurface renderer)))))
-	(setf (tex :io-surface) io-surface)
-	(gl:bind-texture (tex :target) (tex :tex-id))
-	(cgl:tex-image-io-surface-2d (cgl-context view) (tex :target)
-				     :rgba width height :bgra
-				     :unsigned-int-8-8-8-8-rev (tex :io-surface) 0)
-	(gl:bind-texture (tex :target) 0)))
+      (gl:bind-texture (tex :target) (tex :tex-id))
+      (cgl:tex-image-io-surface-2d (cgl-context view) (tex :target)
+				   :rgba width height :bgra
+				   :unsigned-int-8-8-8-8-rev (iosurface renderer) 0)
+      (gl:bind-texture (tex :target) 0))
     (gl:bind-texture (tex :target) (tex :tex-id))
     (with-cgl-context ((cgl-context renderer))
       (gfx:with-fbo ((fbo renderer))
@@ -549,7 +544,6 @@
     (when output
       (remhash output *io-surface-table*))
     (release renderer)
-    (ns:release (tex :io-surface))
     (gl:delete-texture (tex :tex-id))))
 
 
@@ -663,23 +657,21 @@
     (resize-framebuffer renderer width height)
     (when output
       (setf (gethash output *io-surface-table*) (iosurface renderer)))
-    (let* ((io-surface (io-surface:lookup (io-surface:id (iosurface renderer)))))
-      (with-cgl-context ((cgl-context renderer))
-	(gfx:with-fbo ((fbo renderer))
-	  (gfx:init surface)))
-      (gl:bind-texture (tex :target) texture)
-      (cgl:tex-image-io-surface-2d (cgl-context view) (tex :target)
-				   :rgba width height :bgra
-				   :unsigned-int-8-8-8-8-rev io-surface 0)
-      (gl:bind-texture (tex :target) 0)
-      (list device
-	    :src (tex :src)
-	    :tex-id texture
-	    :target (tex :target)
-	    :surface surface
-	    :io-surface io-surface
-	    :fixed-size fixed-size
-	    :output output))))
+    (with-cgl-context ((cgl-context renderer))
+      (gfx:with-fbo ((fbo renderer))
+	(gfx:init surface)))
+    (gl:bind-texture (tex :target) texture)
+    (cgl:tex-image-io-surface-2d (cgl-context view) (tex :target)
+				 :rgba width height :bgra
+				 :unsigned-int-8-8-8-8-rev (iosurface renderer) 0)
+    (gl:bind-texture (tex :target) 0)
+    (list device
+	  :src (tex :src)
+	  :tex-id texture
+	  :target (tex :target)
+	  :surface surface
+	  :fixed-size fixed-size
+	  :output output)))
 
 (defmethod update-texture-device (view (device (eql :shader)) texture-device)
   (declare (ignore device))
@@ -695,14 +687,11 @@
       (when output
 	(setf (gethash output *io-surface-table*) (iosurface renderer)))
       (setf (gfx:width surface) width (gfx:height surface) height)
-      (ns:release (tex :io-surface))
-      (let* ((io-surface (io-surface:lookup (io-surface:id (iosurface renderer)))))
-	(setf (tex :io-surface) io-surface)
-	(gl:bind-texture (tex :target) (tex :tex-id))
-	(cgl:tex-image-io-surface-2d (cgl-context view) (tex :target)
-				     :rgba width height :bgra
-				     :unsigned-int-8-8-8-8-rev (tex :io-surface) 0)
-	(gl:bind-texture (tex :target) 0)))
+      (gl:bind-texture (tex :target) (tex :tex-id))
+      (cgl:tex-image-io-surface-2d (cgl-context view) (tex :target)
+				   :rgba width height :bgra
+				   :unsigned-int-8-8-8-8-rev (iosurface renderer) 0)
+      (gl:bind-texture (tex :target) 0))
     (gl:bind-texture (tex :target) (tex :tex-id))
     (with-cgl-context ((cgl-context renderer))
       (gfx:with-fbo ((fbo renderer))
@@ -721,16 +710,14 @@
     (when output
       (remhash output *io-surface-table*))
     (release renderer)
-    (ns:release (tex :io-surface))
     (gl:delete-texture (tex :tex-id))))
 
 ;;; io-surface
 (defmethod init-texture-device (view (device (eql :io-surface)) texture-device)
   (let* ((src (tex :src))
-	 (src-io-surface (gethash src *io-surface-table*)))
-    (when src-io-surface
+	 (io-surface (gethash src *io-surface-table*)))
+    (when io-surface
       (let* ((texture (gl:gen-texture))
-	     (io-surface (io-surface:lookup (io-surface:id src-io-surface)))
 	     (width (io-surface:width io-surface))
 	     (height (io-surface:height io-surface)))
 	(gl:bind-texture (tex :target) texture)
@@ -742,30 +729,25 @@
 	      :src (tex :src)
 	      :tex-id texture
 	      :target (tex :target)
-	      :io-surface io-surface
 	      :width width
 	      :height height)))))
 
 (defmethod update-texture-device (view (device (eql :io-surface)) texture-device)
   (declare (ignore device))
-  (let* ((src-io-surface (gethash (tex :src) *io-surface-table*)))
-    (when (or (/= (tex :width) (io-surface:width src-io-surface))
-	      (/= (tex :height) (io-surface:height src-io-surface)))
-      (ns:release (tex :io-surface))
-      (let* ((io-surface (io-surface:lookup (io-surface:id src-io-surface)))
-	     (width (io-surface:width io-surface))
-	     (height (io-surface:height io-surface)))
-	(setf (tex :io-surface) io-surface
-	      (tex :width) width
-	      (tex :height) height)
-	(gl:bind-texture (tex :target) (tex :tex-id))
-	(cgl:tex-image-io-surface-2d (cgl-context view) (tex :target) :rgba
-				     width height :bgra :unsigned-int-8-8-8-8-rev io-surface 0)
-	(gl:bind-texture (tex :target) 0)))
+  (let* ((io-surface (gethash (tex :src) *io-surface-table*))
+	 (width (io-surface:width io-surface))
+	 (height (io-surface:height io-surface)))
+    (when (or (/= (tex :width) width)
+	      (/= (tex :height) height))
+      (setf (tex :width) width
+	    (tex :height) height)
+      (gl:bind-texture (tex :target) (tex :tex-id))
+      (cgl:tex-image-io-surface-2d (cgl-context view) (tex :target) :rgba
+				   width height :bgra :unsigned-int-8-8-8-8-rev io-surface 0)
+      (gl:bind-texture (tex :target) 0))
     (gl:bind-texture (tex :target) (tex :tex-id))))
 
 (defmethod release-texture-device (view (device (eql :io-surface)) texture-device)
   (declare (ignore view device))
-  (ns:release (tex :io-surface))
   (gl:delete-texture (tex :tex-id)))
 

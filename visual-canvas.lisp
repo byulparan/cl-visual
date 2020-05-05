@@ -52,9 +52,6 @@
    (renderer
     :initarg :renderer
     :reader renderer)
-   (iosurface
-    :initform nil
-    :accessor iosurface)
    (framebuffer
     :initform nil
     :accessor framebuffer)
@@ -121,14 +118,12 @@
 
 (defmethod resize-framebuffer ((renderer visual-canvas) width height)
   (let* ((cgl-context (ns:cgl-context renderer)))
-    (when (iosurface renderer) (ns:release (iosurface renderer)))
-    (setf (iosurface renderer) (io-surface:lookup (io-surface:id (iosurface (renderer renderer)))))
     (unless (framebuffer renderer)
       (setf (framebuffer renderer) (gl:gen-framebuffer)
 	    (texture renderer) (gl:gen-texture)
 	    (depthbuffer renderer) (gl:gen-renderbuffer)))
     (make-framebuffer-from-iosurface cgl-context (framebuffer renderer) (texture renderer) (depthbuffer renderer)
-				       (iosurface renderer) width height)))
+				     (iosurface (renderer renderer)) width height)))
 
 
 (defmethod ns:init ((view visual-canvas))
@@ -275,7 +270,6 @@
 (defmethod ns:release ((view visual-canvas))
   (release (renderer view))
   (gfx:release-environment view)
-  (ns:release (iosurface view))
   (ns:release (ci-context view))
   (destroy-fps-info (fps-info view))
   (gl:delete-texture (texture view))
