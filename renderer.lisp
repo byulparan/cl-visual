@@ -149,9 +149,11 @@
       (setf (texture-devices renderer)
 	(loop for device in devices
 	      for target in targets
-	      collect (let ((device (alexandria:ensure-list device)))
-			(init-texture-device renderer (car device) (append (cdr device)
-									   (list :target target)))))))))
+	      for texture-device = (let ((device (alexandria:ensure-list device)))
+				     (init-texture-device renderer (car device) (append (cdr device)
+											(list :target target))))
+	      when texture-device
+		collect texture-device)))))
 
 (defun reinit-visual-renderer (renderer options &optional scene-size)
   (with-cgl-context ((cgl-context renderer))
