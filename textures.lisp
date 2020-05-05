@@ -467,8 +467,8 @@
   			   (gfx::framebuffer (if (gl-canvas view) (fbo view) (gfx::output-fbo (fbo view)))))))
 
 
-;;; iosurface
-(defmethod init-texture-device (view (device (eql :io-surface)) texture-device)
+;;; gl-canvas
+(defmethod init-texture-device (view (device (eql :gl-canvas)) texture-device)
   (declare (ignorable device))
   (let* ((core-profile (if (not (find :core-profile texture-device)) t
 			 (tex :core-profile)))
@@ -498,7 +498,7 @@
 	    :io-surface io-surface
 	    :fixed-size fixed-size))))
 
-(defmethod update-texture-device (view (device (eql :io-surface)) texture-device)
+(defmethod update-texture-device (view (device (eql :gl-canvas)) texture-device)
   (declare (ignore device))
   (let* ((width (width view))
   	 (height (height view))
@@ -525,7 +525,7 @@
 	(gfx:draw canvas))
       (gl:flush))))
 
-(defmethod release-texture-device (view (device (eql :io-surface)) texture-device)
+(defmethod release-texture-device (view (device (eql :gl-canvas)) texture-device)
   (declare (ignore view device))
   (let* ((renderer (tex :renderer))
   	 (canvas (tex :gl-canvas)))
