@@ -91,8 +91,8 @@
 
 (define-function-library op-u ((d1 :float) (d2 :float))
   (let* ((result 0.0))
-    (if (< d1 d2) (setf result d1)
-	(setf result d2))
+    (if! (< d1 d2) (setf result d1)
+	 (setf result d2))
     result))
 
 (define-macro-library op-u* (d1 d2 &body body)
@@ -103,8 +103,8 @@
 
 (define-function-library op-u2 ((d1 :vec2) (d2 :vec2))
   (let* ((result (v! 0.0 0.0)))
-    (if (< (x d1) (x d2)) (setf result d1)
-	(setf result d2))
+    (if! (< (x d1) (x d2)) (setf result d1)
+	 (setf result d2))
     result))
 
 (define-macro-library op-u2* (d1 d2 &body body)
@@ -117,16 +117,16 @@
 
 (define-function-library op-s ((d1 :float) (d2 :float))
   (let* ((result 0.0))
-    (if (> (- d1) d2)
-	(setf result (- d1))
-	(setf result d2))
+    (if! (> (- d1) d2)
+	 (setf result (- d1))
+	 (setf result d2))
     result))
 
 (define-function-library op-s2 ((d1 :vec2) (d2 :vec2))
   (let* ((result (v! 0.0 0.0)))
-    (if (> (- (x d1)) (x d2))
-	(setf result (v! (- (x d1)) (y d1)))
-	(setf result d2))
+    (if! (> (- (x d1)) (x d2))
+	 (setf result (v! (- (x d1)) (y d1)))
+	 (setf result d2))
     result))
 
 (define-function-library sd-plane ((p :vec3) (n :vec4))
@@ -184,9 +184,9 @@
 		(h (normalize (+ l c)))
 		(ndl (dot n l))
 		(ndh (dot n h)))
-	   (cond ((< ndl 0.0) (setf lighting (vec3 0.0)))
-		 ((< ndh 0.0) (setf lighting (* d ndl)))
-		 (t (setf lighting (+ (* d ndl) (* s (pow ndh alpha))))))
+	   (cond! ((< ndl 0.0) (setf lighting (vec3 0.0)))
+		  ((< ndh 0.0) (setf lighting (* d ndl)))
+		  (t (setf lighting (+ (* d ndl) (* s (pow ndh alpha))))))
 	   (incf col lighting)
 	   col)))))
 
