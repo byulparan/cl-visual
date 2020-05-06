@@ -264,7 +264,6 @@
 
 
 (defvar *visual-canvas* nil)
-(defvar *last-commands* nil)
 (defvar *ichannel-table* (make-hash-table))
 
 (defmethod ns:release ((view visual-canvas))
@@ -279,98 +278,27 @@
     (syphon:stop-server syphon)
     (ns:release syphon))
   (sc:free (audio-group view))
-  (setf *visual-canvas* nil)
-  (setf *last-commands* nil))
+  (setf *visual-canvas* nil))
 
-(defmacro gfx::start-shader (shader &key textures
-				      (reinit-time (let ((cur-time (gfx:get-internal-seconds)))
-						     (lambda () (- (gfx:get-internal-seconds) cur-time))))
-				      size
-				      (scene-ratio 1)
-				      user-fn
-				      (use-mouse t)
-				      syphon
-				      output-filter
-				      retina
-				      (info t)
-				      gl-canvas)
-  (let* ((window-name (format nil "~a" shader)))
-    (assert (gethash shader gfx::*all-pipeline-table*) nil "can't find \"~a\" shader" shader)
-    (setf *last-commands* (list :textures textures :reinit-time reinit-time :size size
-				:scene-ratio scene-ratio :user-fn user-fn :syphon syphon :output-filter output-filter
-				:retina retina :info info :gl-canvas gl-canvas))
-    `(if *visual-canvas* (progn (#+sbcl send-message
-				 #+ccl mailbox-send-message
-				 (mailbox *visual-canvas*)
-				 (list :textures ,textures
-				       :shader ',shader
-				       :output-filter ,output-filter
-				       :syphon ,syphon
-				       :user-fn ,user-fn
-				       :info ,info
-				       :scene-ratio ,scene-ratio
-				       :retina ,retina
-				       :gl-canvas ,gl-canvas))
-				(setf (use-mouse *visual-canvas*) ,use-mouse)
-				(ns:with-event-loop nil
-				  (ns:objc (window *visual-canvas*) "setTitle:"
-					   :pointer (ns:autorelease (ns:make-ns-string ,window-name)))
-				  (when (and ,size (not (ns:objc (cl-visual::window cl-visual::*visual-canvas*) "isFullscreen" :bool)))
-				    (let* ((window (window *visual-canvas*))
-					   (frame (ns:objc-stret ns:rect window "frame")))
-				      (ns:objc (window *visual-canvas*) "setFrame:display:"
-					       (:struct ns:rect) (ns:make-rect (ns:rect-x frame)
-										(+ (ns:rect-y frame)
-										   (- (ns:rect-height frame)
-										      (+ 22 ,(third size))))
-										,(second size)
-										(+ 22 ,(third size)))
 
-					       :int 0)))))
-       (ns:with-event-loop (:waitp t)
-	 (let* ((renderer (make-instance 'visual-renderer :reinit-time ,reinit-time
-	 				 :core-profile t))
-	 	(canvas (make-instance 'visual-canvas :x 0 :y 0 :w ,(if size (second size) 720) :h ,(if size (third size) 450)
-				       :use-mouse ,use-mouse
-	 			       :scene-ratio ,scene-ratio
-	 			       :renderer renderer
-	 			       :retina ,retina
-	 			       :core-profile nil))
-	 	(window (make-instance 'ns:window
-			  :rect (ns:in-screen-rect (ns:make-rect 0 1000 ,(if size (second size) 720) ,(if size (third size) 450)))
-			  :title ,window-name)))
-	   (ns:objc canvas "setWantsBestResolutionOpenGLSurface:" :bool (retina canvas))
-	   (setf (ns:content-view window) canvas)
-	   (setf (window canvas) window)
-	   (#+sbcl send-message
-	    #+ccl mailbox-send-message 
-	    (mailbox canvas) :force-resize)
-	   (#+sbcl send-message
-	    #+ccl mailbox-send-message
-	    (mailbox canvas)
-	    (list :textures ,textures
-		  :shader ',shader
-		  :output-filter ,output-filter
-		  :syphon ,syphon
-		  :user-fn ,user-fn
-		  :info ,info
-		  :scene-ratio ,scene-ratio
-		  :retina ,retina
-		  :gl-canvas ,gl-canvas))
-	   (setf *visual-canvas* canvas)
-	   (ns:window-show window))))))
-
-(defun reinterpret-shader-p (name ichannel-targets)
+(defun need-restart-shader-p (name ichannel-targets)
   (when *visual-canvas*
     (let* ((renderer (renderer *visual-canvas*))
 	   (devices (texture-devices renderer)))
-      (and
-       (or (eql name (shader renderer))
-	   (loop for dev in devices
-		 when (and (eql :shader (car dev))
-			   (eql name (getf (cdr dev) :src)))
-		   do (return t)))
-       (not (equal (gethash name *ichannel-table*) ichannel-targets))))))
+      (let* ((devices
+	       (or (and (eql name (shader renderer))
+			devices)
+		   (when-let ((dev
+			       (find-if (lambda (dev) (and (eql :shader (car dev))
+							   (eql name (getf (cdr dev) :src))))
+					devices)))
+		     (texture-devices (getf (cdr dev) :surface))))))
+	(loop for dev in devices
+	      for target in ichannel-targets
+	      unless (eql (getf (cdr dev) :target) (ecase target
+						     (:sampler-2d :texture-2d)
+						     (:sampler-2d-rect :texture-rectangle)))
+		do (return t))))))
 
 (defmacro gfx::define-shader (name &body body)
   (let ((name (ensure-list name))
@@ -399,11 +327,66 @@
 	 (:fragment ((vfuv :vec2))
 		    (progn ,@body)))
        ;; reinterpret ======================================================================
-       (when (reinterpret-shader-p ',(car name) ',ichannel-targets)
-	 (gfx::start-shader ,(and *visual-canvas* (shader (renderer *visual-canvas*))) ,@*last-commands*)
-	 (format t "~&reinterpret shader: ~a~%" ',(car name)))
+       (when (need-restart-shader-p ',(car name) ',ichannel-targets)
+	 (warn "should be re-start shader ~a" (shader (renderer *visual-canvas*))))
        (setf (gethash ',(car name) *ichannel-table*) ',ichannel-targets)
        ',(car name))))
+
+
+(defmacro gfx::start-shader (shader &key textures (reinit-time (let ((cur-time (gfx:get-internal-seconds)))
+								 (lambda () (- (gfx:get-internal-seconds) cur-time))))
+				      size (scene-ratio 1) user-fn (use-mouse t) syphon output-filter retina
+				      (info t) gl-canvas)
+  (with-gensyms (window-name message)
+    `(let* ((,window-name (format nil "~a" ',shader))
+	    (,message (list :shader ',shader
+			    :textures ,textures
+			    :scene-ratio ,scene-ratio :user-fn ,user-fn :syphon ,syphon :output-filter ,output-filter
+			    :retina ,retina :info ,info :gl-canvas ,gl-canvas)))
+       (assert (gethash ',shader gfx::*all-pipeline-table*) nil "can't find \"~a\" shader" ',shader)
+       (if *visual-canvas* (progn (#+sbcl send-message
+				   #+ccl mailbox-send-message
+				   (mailbox *visual-canvas*)
+				   ,message)
+				  (setf (use-mouse *visual-canvas*) ,use-mouse)
+				  (ns:with-event-loop nil
+				    (ns:objc (window *visual-canvas*) "setTitle:"
+					     :pointer (ns:autorelease (ns:make-ns-string ,window-name)))
+				    (when (and ,size (not (ns:objc (cl-visual::window cl-visual::*visual-canvas*) "isFullscreen" :bool)))
+				      (let* ((window (window *visual-canvas*))
+					     (frame (ns:objc-stret ns:rect window "frame")))
+					(ns:objc (window *visual-canvas*) "setFrame:display:"
+						 (:struct ns:rect) (ns:make-rect (ns:rect-x frame)
+										 (+ (ns:rect-y frame)
+										    (- (ns:rect-height frame)
+										       (+ 22 ,(third size))))
+										 ,(second size)
+										 (+ 22 ,(third size)))
+						   :int 0)))))
+	   (ns:with-event-loop (:waitp t)
+	     (let* ((renderer (make-instance 'visual-renderer :reinit-time ,reinit-time
+	 				     :core-profile t))
+	 	    (canvas (make-instance 'visual-canvas :x 0 :y 0 :w ,(if size (second size) 720) :h ,(if size (third size) 450)
+					   :use-mouse ,use-mouse
+	 				   :scene-ratio ,scene-ratio
+	 				   :renderer renderer
+	 				   :retina ,retina
+	 				   :core-profile nil))
+	 	    (window (make-instance 'ns:window
+			      :rect (ns:in-screen-rect (ns:make-rect 0 1000 ,(if size (second size) 720) ,(if size (third size) 450)))
+			      :title ,window-name)))
+	       (ns:objc canvas "setWantsBestResolutionOpenGLSurface:" :bool (retina canvas))
+	       (setf (ns:content-view window) canvas)
+	       (setf (window canvas) window)
+	       (#+sbcl send-message
+		#+ccl mailbox-send-message 
+		(mailbox canvas) :force-resize)
+	       (#+sbcl send-message
+		#+ccl mailbox-send-message
+		(mailbox canvas)
+		,message)
+	       (setf *visual-canvas* canvas)
+	       (ns:window-show window)))))))
 
 
 (defmethod ns:mouse-wheel ((view visual-canvas) event location-x location-y)
