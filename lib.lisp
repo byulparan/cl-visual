@@ -200,5 +200,54 @@
 	  `(texture ,texture (* (v! (x ,uv) (- 1.0 (y ,uv))) ,size)))
       `(texture ,texture (* ,uv ,size)))))
 
+
+(define-function-library post-bloom ((texture :sampler-2d-rect) (size :float) (sigma :float) (horizon :int)
+				     (uv :vec2) (resolution :vec2))
+  (let* ((num-blur (/ size 1.0))
+	 (blur-vec (v! 1.0 .0))
+	 (incr (vec3 0.0))
+	 (arg-value (v! 0.0 0.0 0.0 0.0))
+	 (coefficient 0.0)
+	 (texoffset (/ 1.0 (xy resolution))))
+    (if (= horizon 0) (setf blur-vec (v! .0 1.0)))
+    (setf (x incr) (/ 1.0 (* (sqrt (lisp (* 2.0 pi))) sigma))
+	  (y incr) (exp (/ -0.5 (* sigma sigma)))
+	  (z incr)  (* (y incr) (y incr)))
+    (loop for i from 1.0 to num-blur 
+	  do (incf arg-value
+		   (* (texture texture
+			       (* (texture-size texture)
+				  (- uv (* i 1.2 texoffset blur-vec))))
+		      (x incr)))
+	     (incf arg-value
+		   (* (texture texture
+			       (* (texture-size texture)
+				  (+ uv (* i 1.2 texoffset blur-vec))))
+		      (x incr)))
+	     (incf coefficient (* 1.0 (x incr)))
+	     (setf (xy incr) (* (xy incr) (yz incr))))
+    (/ arg-value coefficient)))
+
+
+
+(define-function-library post-bloom2 ((texture :sampler-2d-rect) (uv :vec2) (resolution :vec2)
+				      (power :float) (threshold :float) (range :float))
+  (let* ((num-samples 1.0)
+	 (color (texture texture (* (texture-size texture) uv)))
+	 (depth 6.0))
+    (loop for x from (- depth) to depth
+	  do (loop for y from (- depth) to depth
+		   do (let* ((add-color (texture texture
+						 (* (texture-size texture)
+						    (+ uv (* (v! x y) (/ (vec2 range) (xy resolution))))))))
+			(when (> (max (x add-color) (max (y add-color) (z add-color))) threshold)
+			  (let* ((dist (+ (length (v! x y)) 1.0))
+				 (glow-color (max (/ (* add-color 128.0) (pow dist 2.0))
+						  (v! 0.0 0.0 0.0 0.0))))
+			    (when (> (max (x glow-color) (max (y glow-color) (z glow-color))) 0.0)
+			      (incf color glow-color)
+			      (setf num-samples (+ num-samples power))))))))
+    (/ color num-samples)))
+
 (gfx:clear-pipeline)
 
