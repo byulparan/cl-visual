@@ -408,65 +408,6 @@
   (declare (ignore view device))
   (gl:delete-texture (tex :tex-id)))
 
-;; fbo
-(defmethod init-texture-device (view (device (eql :fbo)) texture-device)
-  (let* ((width (width view))
-	 (height (height view))
-	 (texture (gl:gen-texture))
-	 (fbo nil)
-	 (canvas (make-instance (tex :src) :width width :height height :camera (camera view)))
-	 (filter (filter :linear))
-	 (wrap (wrap :clamp-to-edge)))
-    (unwind-protect (progn
-		      (gl:bind-texture (tex :target) texture)
-		      (gl:tex-image-2d (tex :target) 0 :rgba8 width height 0 :rgba
-				       :unsigned-byte (cffi:null-pointer))
-		      (gl:tex-parameter (tex :target) :texture-min-filter filter)
-		      (gl:tex-parameter (tex :target) :texture-mag-filter filter)
-		      (gl:tex-parameter (tex :target) :texture-wrap-s wrap)
-		      (gl:tex-parameter (tex :target) :texture-wrap-t wrap)
-		      (gl:bind-texture  (tex :target) 0)
-		      (setf fbo (gfx:make-fbo width height :multisample t :texture texture :target (tex :target)))
-		      (gfx:with-fbo (fbo) 
-			(gfx::init canvas)))
-      (gl:bind-framebuffer :framebuffer
-			   (gfx::framebuffer (if (gl-canvas view) (fbo view) (gfx::output-fbo (fbo view))))))
-    (list device
-	  :tex-id texture :target (tex :target) :fbo fbo :gl-canvas canvas)))
-
-(defmethod update-texture-device (view (device (eql :fbo)) texture-device)
-  (declare (ignore device))
-  (let* ((fbo (tex :fbo)))
-    (unwind-protect
-  	 (let* ((width (width view))
-  		(height (height view)))
-  	   (unless (and (= width (gfx:width fbo))
-  			(= height (gfx:height fbo)))
-  	     (gl:bind-texture (tex :target) (tex :tex-id))
-  	     (gl:tex-image-2d (tex :target) 0 :rgba8 width height 0 :rgba
-  			      :unsigned-byte (cffi:null-pointer))
-  	     (gl:bind-texture (tex :target) 0)
-  	     (gfx:reinit-fbo fbo width height)
-  	     (setf (gfx:width (tex :gl-canvas)) width
-  		   (gfx:height (tex :gl-canvas)) height))
-	   (gl:bind-texture (tex :target) (tex :tex-id))
-  	   (gfx:with-fbo (fbo)
-  	     (gfx::draw (tex :gl-canvas))))
-      (gl:bind-framebuffer :framebuffer
-  			   (gfx::framebuffer (if (gl-canvas view) (fbo view) (gfx::output-fbo (fbo view))))))))
-
-(defmethod release-texture-device (view (device (eql :fbo)) texture-device)
-  (declare (ignorable view device))
-  (unwind-protect (progn
-  		      (gfx:with-fbo ((tex :fbo))
-  			(gfx:release (tex :gl-canvas)))
-  		      (gfx:release-environment (tex :gl-canvas))
-  		      (gfx:release-fbo (tex :fbo))
-  		      (gl:delete-texture (tex :tex-id)))
-      (gl:bind-framebuffer :framebuffer
-  			   (gfx::framebuffer (if (gl-canvas view) (fbo view) (gfx::output-fbo (fbo view)))))))
-
-
 
 ;;
 (defvar *io-surface-table* (make-hash-table))
