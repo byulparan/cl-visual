@@ -483,7 +483,7 @@
 	 (height (if fixed-size (second (tex :size)) (height view)))
 	 (renderer (make-instance 'renderer :width width :height height :core-profile core-profile))
 	 (gl-canvas (make-instance (tex :src) :width width :height height
-				   :camera (if (tex :shared-camera) (camera view)
+				   :camera (if (tex :shared-camera) (camera (renderer *visual-canvas*))
 					     (make-instance 'gfx:camera))))
 	 (output (tex :output)))
     (resize-framebuffer renderer width height)
@@ -646,7 +646,7 @@
 	 (height (if fixed-size (second (tex :size)) (height view)))
 	 (renderer (make-instance 'renderer :width width :height height :core-profile core-profile))
 	 (surface (make-instance 'shader-surface :width width :height height
-				 :camera (if (tex :shared-camera) (camera view)
+				 :camera (if (tex :shared-camera) (camera (renderer *visual-canvas*))
 					   (make-instance 'gfx:camera))
 				 :renderer renderer
 				 :shader (tex :src)
