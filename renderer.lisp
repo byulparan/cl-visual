@@ -209,6 +209,7 @@
   (with-cgl-context ((cgl-context renderer))
     (let* ((w (width renderer))
 	   (h (height renderer))
+	   (gfx:*fbo-stack* (list 0))
 	   (draw-fbo (if (multisample renderer) (fbo renderer)
 		       (gfx::output-fbo (fbo renderer)))))
       (gfx:with-fbo (draw-fbo)
