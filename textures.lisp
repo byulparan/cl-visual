@@ -599,7 +599,7 @@
     (when output
       (setf (gethash output *io-surface-table*) (iosurface renderer)))
     (with-cgl-context ((cgl-context renderer))
-      (let* ((fbo (if (gl-canvas surface) (fbo renderer)
+      (let* ((fbo (if (tex :multisample) (fbo renderer)
 		    (gfx::output-fbo (fbo renderer)))))
 	(gfx:with-fbo (fbo)
 	  (gfx:init surface))))
@@ -613,6 +613,7 @@
 	  :tex-id texture
 	  :target (tex :target)
 	  :surface surface
+	  :multisample (tex :multisample)
 	  :fixed-size fixed-size
 	  :output output)))
 
@@ -637,7 +638,7 @@
       (gl:bind-texture (tex :target) 0))
     (gl:bind-texture (tex :target) (tex :tex-id))
     (with-cgl-context ((cgl-context renderer))
-      (let* ((fbo (if (gl-canvas surface) (fbo renderer)
+      (let* ((fbo (if (tex :multisample) (fbo renderer)
 		    (gfx::output-fbo (fbo renderer)))))
 	(gfx:with-fbo (fbo)
 	  (gfx:draw surface))
@@ -659,7 +660,7 @@
 	 (renderer (renderer surface))
 	 (output (tex :output)))
     (with-cgl-context ((cgl-context renderer))
-      (let* ((fbo (if (gl-canvas surface) (fbo renderer)
+      (let* ((fbo (if (tex :multisample) (fbo renderer)
 		    (gfx::output-fbo (fbo renderer)))))
 	(gfx:with-fbo (fbo)
 	  (gfx:release surface)))

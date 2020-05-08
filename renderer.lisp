@@ -104,7 +104,10 @@
     :allocation :class)
    (gl-canvas
     :initform nil
-    :accessor gl-canvas)))
+    :accessor gl-canvas)
+   (multisample
+    :initform nil
+    :accessor multisample)))
 
 
 ;;; ===========================================================================
@@ -157,6 +160,7 @@
 
 (defun reinit-visual-renderer (renderer options &optional scene-size)
   (with-cgl-context ((cgl-context renderer))
+    (setf (multisample renderer) (getf options :multisample))
     (when scene-size
       (resize-framebuffer renderer (car scene-size) (second scene-size)))
     (reinit-shader renderer (getf options :shader))
@@ -205,7 +209,7 @@
   (with-cgl-context ((cgl-context renderer))
     (let* ((w (width renderer))
 	   (h (height renderer))
-	   (draw-fbo (if (gl-canvas renderer) (fbo renderer)
+	   (draw-fbo (if (multisample renderer) (fbo renderer)
 		       (gfx::output-fbo (fbo renderer)))))
       (gfx:with-fbo (draw-fbo)
 	(gl:viewport 0 0 w h)

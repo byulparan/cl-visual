@@ -336,13 +336,13 @@
 (defmacro gfx::start-shader (shader &key textures (reinit-time (let ((cur-time (gfx:get-internal-seconds)))
 								 (lambda () (- (gfx:get-internal-seconds) cur-time))))
 				      size (scene-ratio 1) user-fn (use-mouse t) syphon output-filter retina
-				      (info t) gl-canvas)
+				      (info t) gl-canvas multisample)
   (with-gensyms (window-name message)
     `(let* ((,window-name (format nil "~a" ',shader))
 	    (,message (list :shader ',shader
 			    :textures ,textures
 			    :scene-ratio ,scene-ratio :user-fn ,user-fn :syphon ,syphon :output-filter ,output-filter
-			    :retina ,retina :info ,info :gl-canvas ,gl-canvas)))
+			    :retina ,retina :info ,info :gl-canvas ,gl-canvas :multisample ,multisample)))
        (assert (gethash ',shader gfx::*all-pipeline-table*) nil "can't find \"~a\" shader" ',shader)
        (if *visual-canvas* (progn (#+sbcl send-message
 				   #+ccl mailbox-send-message
