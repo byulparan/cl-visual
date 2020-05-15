@@ -14,4 +14,7 @@
 	       (:file "visual-canvas")
 	       (:file "textures")
 	       ;; (:file "cocoa-textures")
-	       (:file "lib")))
+	       (:file "lib")
+	       (:module "post-fx"
+			:components ((:file "package")
+				     (:file "bloom")))))
