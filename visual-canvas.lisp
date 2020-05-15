@@ -303,7 +303,7 @@
 (defmacro gfx::define-shader (name &body body)
   (let ((name (ensure-list name))
 	(ichannel-targets (make-list 8 :initial-element :sampler-2d-rect)))
-    (loop for (index target) in (second name)
+    (loop for (index target) in (cdr name)
 	  do (setf (nth index ichannel-targets) target))
     `(progn
        (gfx:defpipeline (,(car name) :version 330)
