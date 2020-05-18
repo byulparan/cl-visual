@@ -587,6 +587,10 @@
 (defmethod cgl-context ((view shader-surface))
   (cgl-context (renderer view)))
 
+(defmethod pixel-format ((view shader-surface))
+  (pixel-format (renderer view)))
+
+
 (defmethod width ((view shader-surface))
   (gfx:width view))
 
