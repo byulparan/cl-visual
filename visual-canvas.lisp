@@ -3,11 +3,11 @@
 (defun gfx::add-uniform (name type)
   (setf (gethash name gfx::*gfx-secondary-variables*) (glsl::make-code-object type (ppcre:regex-replace-all "-" (string-downcase name) "_"))))
 
-(defun gfx::clear-pipeline (&optional install-uniforms)
+(defun gfx::clear-pipeline (&optional remove-uniforms)
   (gfx:reinit-shader-system)
   (loop for pipeline being the hash-values of gfx::*all-pipeline-table*
  	do (setf (gfx::%pipeline-used-funcs pipeline) nil))
-  (when install-uniforms
+  (unless remove-uniforms 
     (loop for chan in '(ichannel0 ichannel1 ichannel2 ichannel3 ichannel4 ichannel5
 			ichannel6 ichannel7)
 	  do (gfx::add-uniform chan :sampler-2d-rect))
@@ -264,7 +264,6 @@
 
 
 (defvar *visual-canvas* nil)
-(defvar *ichannel-table* (make-hash-table))
 
 (defmethod ns:release ((view visual-canvas))
   (release (renderer view))
@@ -281,39 +280,21 @@
   (setf *visual-canvas* nil))
 
 
-(defun need-restart-shader-p (name ichannel-targets)
-  (when *visual-canvas*
-    (let* ((renderer (renderer *visual-canvas*))
-	   (devices (texture-devices renderer)))
-      (let* ((devices
-	       (or (and (eql name (shader renderer))
-			devices)
-		   (when-let ((dev
-			       (find-if (lambda (dev) (and (eql :shader (car dev))
-							   (eql name (getf (cdr dev) :src))))
-					devices)))
-		     (texture-devices (getf (cdr dev) :surface))))))
-	(loop for dev in devices
-	      for target in ichannel-targets
-	      unless (eql (getf (cdr dev) :target) (ecase target
-						     (:sampler-2d :texture-2d)
-						     (:sampler-2d-rect :texture-rectangle)))
-		do (return t))))))
-
 (defmacro gfx::define-shader (name &body body)
-  (let ((name (ensure-list name))
-	(ichannel-targets (make-list 8 :initial-element :sampler-2d-rect)))
-    (loop for (index target) in (cdr name)
-	  do (setf (nth index ichannel-targets) target))
-    `(progn
-       (gfx:defpipeline (,(car name) :version 330)
-	   (,@(loop for i from 0 below 8
-		    collect (list (intern (format nil "ICHANNEL~d" i)) (nth i ichannel-targets)))
+  `(progn
+       (gfx:defpipeline (,name :version 330)
+	   (,@(loop with pipeline = (gethash name gfx::*all-pipeline-table*)
+		    for i from 0 below 8
+		    for uniform in (if pipeline (gfx::%pipeline-uniforms pipeline)
+				     (make-list 8))
+		    collect (list (intern (format nil "ICHANNEL~d" i))
+				  (if pipeline (second uniform)
+				      :sampler-2d)))
 	    (iglobal-time :float)
 	    (itime :float)
-	    ,@(loop for i from 0 below 6
+	    ,@(loop for i from 0 below *num-ivolume*
 		    collect (list (intern (format nil "IVOLUME~d" i)) :float))
-	    ,@(loop for i from 0 below 10
+	    ,@(loop for i from 0 below *num-icontrol*
 		    collect (list (intern (format nil "ICONTROL~d" i)) :float))
 	    (iresolution :vec2)
 	    (camera :vec3)
@@ -326,11 +307,7 @@
 		   pos))
 	 (:fragment ((vfuv :vec2))
 		    (progn ,@body)))
-       ;; reinterpret ======================================================================
-       (when (need-restart-shader-p ',(car name) ',ichannel-targets)
-	 (warn "should be re-start shader ~a" (shader (renderer *visual-canvas*))))
-       (setf (gethash ',(car name) *ichannel-table*) ',ichannel-targets)
-       ',(car name))))
+       ',name))
 
 
 (defmacro gfx::start-shader (shader &key textures (reinit-time (let ((cur-time (gfx:get-internal-seconds)))

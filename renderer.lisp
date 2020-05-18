@@ -140,23 +140,32 @@
 	     (setf (gfx::shaders renderer) nil)))
   (setf (shader renderer) new-shader))
 
+
 (defun reinit-textures (renderer options)
   (loop for device in (texture-devices renderer)
 	do (release-texture-device renderer (car device) (cdr device)))
   (let* ((devices (getf options :textures)))
     (let* ((pipeline (gethash (shader renderer) gfx::*all-pipeline-table*))
-	   (targets (mapcar (lambda (type) (ecase type 
-					     (:sampler-2d :texture-2d)
-					     (:sampler-2d-rect :texture-rectangle)))
-			    (mapcar #'second (subseq (gfx::%pipeline-uniforms pipeline) 0 (length devices))))))
+	   (need-update nil))
       (setf (texture-devices renderer)
 	(loop for device in devices
-	      for target in targets
 	      for texture-device = (let ((device (alexandria:ensure-list device)))
-				     (init-texture-device renderer (car device) (append (cdr device)
-											(list :target target))))
+				     (init-texture-device renderer (car device) (cdr device)))
+	      for target = (ecase (getf (cdr texture-device) :target)
+			     (:texture-2d :sampler-2d)
+			     (:texture-rectangle :sampler-2d-rect))
+	      for uniform in (gfx::%pipeline-uniforms pipeline)
 	      when texture-device
-		collect texture-device)))))
+		do (unless (eql (second uniform) target)
+		     (setf (second uniform) target)
+		     (setf need-update t))
+		collect texture-device))
+      (when need-update
+	(format t "update ichannels [~{~a~^ ~}] for ~a~%"
+		(mapcar #'second (subseq (gfx::%pipeline-uniforms pipeline) 0 8))
+		(gfx::%pipeline-name pipeline))
+	(force-output)
+	(gfx::update-source pipeline)))))
 
 (defun reinit-visual-renderer (renderer options &optional scene-size)
   (with-cgl-context ((cgl-context renderer))
