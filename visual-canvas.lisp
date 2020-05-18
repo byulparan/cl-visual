@@ -10,7 +10,7 @@
   (unless remove-uniforms 
     (loop for chan in '(ichannel0 ichannel1 ichannel2 ichannel3 ichannel4 ichannel5
 			ichannel6 ichannel7)
-	  do (gfx::add-uniform chan :sampler-2d-rect))
+	  do (gfx::add-uniform chan :sampler-2d))
     (loop for cont in '(icontrol0 icontrol1 icontrol2 icontrol3 icontrol4
 			icontrol5 icontrol6 icontrol7 icontrol8 icontrol9)
 	  do (gfx::add-uniform cont :float))

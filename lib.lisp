@@ -200,6 +200,12 @@
 	  `(texture ,texture (* (v! (x ,uv) (- 1.0 (y ,uv))) ,size)))
       `(texture ,texture (* ,uv ,size)))))
 
+(define-macro-library texture-rect (texture uv &optional flip)
+  (let* ((size `(texture-size ,texture)))
+    (if flip
+	(once-only (uv)
+	  `(texture ,texture (* (v! (x ,uv) (- 1.0 (y ,uv))) ,size)))
+      `(texture ,texture (* ,uv ,size)))))
 
 (define-function-library post-bloom ((texture :sampler-2d-rect) (size :float) (sigma :float) (horizon :int)
 				     (uv :vec2) (resolution :vec2))
