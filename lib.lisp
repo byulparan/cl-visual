@@ -234,8 +234,6 @@
 	     (setf (xy incr) (* (xy incr) (yz incr))))
     (/ arg-value coefficient)))
 
-
-
 (define-function-library post-bloom2 ((texture :sampler-2d-rect) (uv :vec2) (resolution :vec2)
 				      (power :float) (threshold :float) (range :float))
   (let* ((num-samples 1.0)
@@ -254,6 +252,32 @@
 			      (incf color glow-color)
 			      (setf num-samples (+ num-samples power))))))))
     (/ color num-samples)))
+
+(define-function-library rand11 ((a :float))
+  (fract (* (sin a) 10403.9)))
+
+(define-function-library rand12 ((f :float))
+  (fract (* (cos f) (v! 10003.579 37049.7))))
+
+(define-function-library rand21 ((uv :vec2))
+  (let* ((f (+ (x uv) (* (y uv) 37.0))))
+    (fract (* (sin f) 104003.9))))
+
+(define-function-library rand22 ((uv :vec2))
+  (let* ((f (+ (x uv) (* (y uv) 37.0))))
+    (fract (* (cos f) (v! 10003.579 37049.7)))))
+
+(define-macro-library nearest-voxel (pos rd dist &optional (voxel-pad .2))
+  `(let* ((dx (- (fract (x ,pos))))
+	  (dz (- (fract (z ,pos))))
+	  (voxel-pad ,voxel-pad))
+     (when (> (x ,rd) 0.0) (setf dx (fract (- (x ,pos)))))
+     (when (> (z ,rd) 0.0) (setf dz (fract (- (z ,pos)))))
+     (let* ((nearest-voxel (+ (min (fract (/ dx (x ,rd)))
+				   (fract (/ dz (z ,rd))))
+			      voxel-pad)))
+       (setf nearest-voxel (max voxel-pad nearest-voxel)
+	     ,dist (min ,dist nearest-voxel)))))
 
 (gfx:clear-pipeline)
 
