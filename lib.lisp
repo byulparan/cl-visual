@@ -89,31 +89,37 @@
 
 
 
-(define-function-library op-u ((d1 :float) (d2 :float))
+(define-function-library internal-op ((d1 :float) (d2 :float))
   (let* ((result 0.0))
     (if! (< d1 d2) (setf result d1)
 	 (setf result d2))
     result))
 
-(define-macro-library op-u* (d1 d2 &body body)
-  (let* ((item `(op-u ,d1 ,d2)))
-    (loop for b in body
-	  do (setf item `(op-u ,item ,b)))
-    item))
+(unexport 'internal-op)
 
-(define-function-library op-u2 ((d1 :vec2) (d2 :vec2))
+(define-macro-library op-u (d1 &body body)
+  (if body (let* ((d2 (car body))
+		  (item `(internal-op ,d1 ,d2)))
+	     (loop for b in (cdr body)
+		   do (setf item `(internal-op ,item ,b)))
+	     item)
+    d1))
+
+(define-function-library internal-op2 ((d1 :vec2) (d2 :vec2))
   (let* ((result (v! 0.0 0.0)))
     (if! (< (x d1) (x d2)) (setf result d1)
 	 (setf result d2))
     result))
 
-(define-macro-library op-u2* (d1 d2 &body body)
-  (let* ((item `(op-u2 ,d1 ,d2)))
-    (loop for b in body
-	  do (setf item `(op-u2 ,item ,b)))
-    item))
+(unexport 'internal-op2)
 
-
+(define-macro-library op-u2 (d1 &body body)
+  (if body (let* ((d2 (car body))
+		  (item `(internal-op2 ,d1 ,d2)))
+	     (loop for b in body
+		   do (setf item `(internal-op2 ,item ,b)))
+	     item)
+    d1))
 
 (define-function-library op-s ((d1 :float) (d2 :float))
   (let* ((result 0.0))
