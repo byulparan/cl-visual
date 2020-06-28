@@ -121,12 +121,23 @@
 	     item)
     d1))
 
-(define-function-library op-s ((d1 :float) (d2 :float))
+(define-function-library internal-op-s ((d1 :float) (d2 :float))
   (let* ((result 0.0))
-    (if! (> (- d1) d2)
-	 (setf result (- d1))
-	 (setf result d2))
+    (if! (> (- d2) d1)
+	 (setf result (- d2))
+	 (setf result d1))
     result))
+
+(unexport 'internal-op-s)
+
+(define-macro-library op-s (d1 &body body)
+  (if body (let* ((d2 (car body))
+		  (item `(internal-op-s ,d1 ,d2)))
+	     (loop for b in (cdr body)
+		   do (setf item `(internal-op-s ,item ,b)))
+	     item)
+    d1))
+
 
 (define-function-library op-s2 ((d1 :vec2) (d2 :vec2))
   (let* ((result (v! 0.0 0.0)))
