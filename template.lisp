@@ -1,0 +1,67 @@
+(gfx:clear-pipeline)
+
+(gfx:defvar-g eps .001)
+(gfx:defvar-g max-step 100)
+(gfx:defvar-g max-depth 100.0)
+
+(gfx:defun-g sdf ((p :vec3))
+  (sl:op-u (y p)
+    (sl:sd-box (v! (x p) (- (y p) 1.0) (z p))
+	       (vec3 .5))))
+
+(gfx:defun-g get-normal ((p :vec3))
+  (normalize
+   (v! (- (sdf p) (sdf (- p (v! eps 0.0 0.0))))
+       (- (sdf p) (sdf (- p (v! 0.0 eps 0.0))))
+       (- (sdf p) (sdf (- p (v! 0.0 0.0 eps)))))))
+
+(gfx:defun-g shadow ((li :vec3) (p :vec3) (k :float))
+  (let* ((dir (normalize (- li p)))
+	 (max (distance li p))
+	 (penumbra 1.0)
+	 (min-dist eps))
+    (dotimes (i max-step)
+      (let* ((ray (+ p (* dir min-dist)))
+	     (d (sdf ray)))
+	(when (< d .000008d0) (return 0.0))
+	(setf penumbra (min penumbra (/ (* k d) min-dist)))
+	(incf min-dist d)
+	(when (>= min-dist max) (break))))
+    penumbra))
+
+(gfx:defun-g light ((p :vec3) (ro :vec3))
+  (let* ((li (v! 10.0 10.0 10.0))
+	 (n (get-normal p))
+	 (l (normalize (- li p)))
+	 (c (normalize (- ro p)))
+	 (h (normalize (+ l c)))
+	 (ndl (dot n l))
+	 (ndh (dot n h))
+	 (sha (shadow li p 10.0))
+	 (fres (mix .248 1.0 (pow (- 1.0 ndh) 5.0)))
+	 (dif (v! 1.0 1.0 1.0))
+	 (spe (v! 1.0 1.0 1.0)))
+    (cond ((< ndl 0.0) (vec3 0.0))
+	  ((< ndh 0.0) (* dif ndl sha))
+	  (t (* sha (+ (* dif ndl (- 1.0 fres))
+		       (* spe (pow ndh 100.0) fres)))))))
+
+(gfx:define-shader template
+  (sl:with-raymarch (uv rd (ro camera) (ta lookat))
+    (let* ((col (vec3 0.0))
+	   (md 0.0))
+      (dotimes (i max-step)
+	(let* ((p (+ ro (* rd md)))
+	       (d (sdf p)))
+	  (when (< d eps) (break))
+	  (incf md d)
+	  (when (> md max-depth) (break))))
+      (when (< md max-depth)
+	(setf col (light (+ ro (* rd md)) ro)))
+      (v! col 1.0))))
+
+(gfx:start-shader template)
+
+(gfx:reset-visual-camera :eye-x 2.0 :eye-y 2.0)
+
+
