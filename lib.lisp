@@ -159,6 +159,31 @@
 (define-function-library sd-sphere ((p :vec3) (s :float))
   (- (length p) s))
 
+(define-function-library sd-cylinder ((p :vec3) (a :vec3) (b :vec3) (r :float))
+  (let* ((ab (- b a))
+	 (ap (- p a))
+	 (t (/ (dot ab ap) (dot ab ab))))
+    (let* ((c (+ a (* t ab)))
+	   (x (- (length (- p c)) r))
+	   (y (* (- (abs (- t .5)) .5) (length ab)))
+	   (e (length (max (v! x y) 0.0)))
+	   (i (min (max x y) 0.0)))
+      (+ e i))))
+
+(define-function-library sd-torus ((p :vec3) (r :vec2))
+  (let* ((x (- (length (xz p)) (x r))))
+    (- (length (v! x (y p))) (y r))))
+
+(define-function-library sd-capture ((p :vec3) (a :vec3) (b :vec3) (r :float))
+  (let* ((ab (- b a))
+	 (ap (- p a))
+	 (t (/ (dot ab ap) (dot ab ab))))
+    (setf t (clamp t .0 1.0))
+    (let* ((c (+ a (* t ab))))
+      (- (length (- p c)) r))))
+
+
+
 (define-function-library flip ((uv :vec2))
   (v! (x uv) (- 1.0 (y uv))))
 
