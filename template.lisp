@@ -44,7 +44,7 @@
     (cond ((< ndl 0.0) (vec3 0.0))
 	  ((< ndh 0.0) (* dif ndl sha))
 	  (t (* sha (+ (* dif ndl (- 1.0 fres))
-		       (* spe (pow ndh 100.0) fres)))))))
+		       (* spe (pow ndh 1000.0) fres)))))))
 
 (gfx:define-shader template
   (sl:with-raymarch (uv rd (ro camera) (ta lookat))
