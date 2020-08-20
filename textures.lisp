@@ -174,10 +174,6 @@
 	 (wrap (wrap :repeat))
 	 (context (tex :src)))
     (gl:bind-texture target texture)
-    (gl:tex-parameter target :texture-mag-filter filter)
-    (gl:tex-parameter target :texture-min-filter filter)
-    (gl:tex-parameter target :texture-wrap-s wrap)
-    (gl:tex-parameter target :texture-wrap-t wrap)
     (gl:bind-texture  target 0)
     (list device
 	  :src context
