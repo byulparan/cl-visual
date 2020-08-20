@@ -353,7 +353,8 @@
 
 ;;; simple-array singloe-float
 (defmethod init-texture-device (view (device #+sbcl sb-kernel::simple-array-single-float
-					     #+ccl ccl::simple-short-float-vector)
+					     #+ccl ccl::simple-short-float-vector
+					     #+lispworks vector)
 				texture-device)
   (declare (ignorable view texture-device))
   (let* ((texture (gl:gen-texture))
@@ -370,7 +371,10 @@
 	  :tex-id texture :target target)))
 
 (defmethod update-texture-device (view (device #+sbcl sb-kernel::simple-array-single-float
-					        #+ccl ccl::simple-short-float-vector)
+					        #+ccl ccl::simple-short-float-vector
+						#+lispworks vector)
+				  
+				  
 				  texture-device)
   (declare (ignore view))
   (gl:bind-texture (tex :target) (tex :tex-id))
@@ -378,7 +382,8 @@
     (gl:tex-image-2d (tex :target) 0 :r32f (length device) 1 0 :red :float ptr)))
 
 (defmethod release-texture-device (view (device #+sbcl sb-kernel::simple-array-single-float
-						#+ccl ccl::simple-short-float-vector)
+						#+ccl ccl::simple-short-float-vector
+						#+lispworks vector)
 				   texture-device)
   (declare (ignore view device))
   (gl:delete-texture (tex :tex-id)))

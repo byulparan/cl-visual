@@ -6,7 +6,7 @@
 	       :cl-syphon
 	       :sc-internal
 	       #+sbcl :sb-concurrency
-	       #+ccl #:safe-queue)
+	       #-sbcl #:safe-queue)
   :components ((:file "package")
 	       (:file "gl-canvas")
 	       (:file "renderer")

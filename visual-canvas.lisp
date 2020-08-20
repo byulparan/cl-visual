@@ -165,13 +165,13 @@
     (when (or (/= (car new-size) (car old-size))
 	      (/= (second new-size) (second old-size)))
       (#+sbcl send-message
-       #+ccl mailbox-send-message
+       #-sbcl mailbox-send-message
        (mailbox view) :force-resize))))
 
 (defun update-visual-canvas (canvas)
   (unless (mailbox-empty-p (mailbox canvas))
     (let* ((options (#+sbcl receive-message
-		     #+ccl mailbox-receive-message
+		     #-sbcl mailbox-receive-message
 		     (mailbox canvas)))
 	   (scene-size nil))
       (flet ((get-scene-size (scene-ratio best-size)
@@ -322,7 +322,7 @@
 			    :retina ,retina :info ,info :gl-canvas ,gl-canvas :multisample ,multisample)))
        (assert (gethash ',shader gfx::*all-pipeline-table*) nil "can't find \"~a\" shader" ',shader)
        (if *visual-canvas* (progn (#+sbcl send-message
-				   #+ccl mailbox-send-message
+				   #-sbcl mailbox-send-message
 				   (mailbox *visual-canvas*)
 				   ,message)
 				  (setf (use-mouse *visual-canvas*) ,use-mouse)
@@ -356,10 +356,10 @@
 	       (setf (ns:content-view window) canvas)
 	       (setf (window canvas) window)
 	       (#+sbcl send-message
-		#+ccl mailbox-send-message 
+		#-sbcl mailbox-send-message 
 		(mailbox canvas) :force-resize)
 	       (#+sbcl send-message
-		#+ccl mailbox-send-message
+		#-sbcl mailbox-send-message
 		(mailbox canvas)
 		,message)
 	       (setf *visual-canvas* canvas)

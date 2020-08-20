@@ -1,6 +1,6 @@
 (defpackage :cl-visual
   (:use :cl :alexandria)
-  #+ccl (:import-from :safe-queue
+  #-sbcl (:import-from :safe-queue
 		      #:make-mailbox
 		      #:mailbox-send-message
 		      #:mailbox-receive-message
