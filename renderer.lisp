@@ -107,7 +107,10 @@
     :accessor gl-canvas)
    (multisample
     :initform nil
-    :accessor multisample)))
+    :accessor multisample)
+   (imouse
+    :initform (list 0.0 0.0 0.0)
+    :accessor imouse)))
 
 
 ;;; ===========================================================================
@@ -207,7 +210,8 @@
 						       (gfx::center-y (camera renderer))
 						       (gfx::center-z (camera renderer)))
 					:projection-matrix ,(projection-matrix renderer)
-					:modelview-matrix ,(modelview-matrix renderer)))
+					:modelview-matrix ,(modelview-matrix renderer)
+					:imouse ,(imouse renderer)))
     (gl:disable :depth-test))
   (when-let ((canvas (gl-canvas renderer)))
     (setf (gfx:width canvas) w (gfx:height canvas) h)

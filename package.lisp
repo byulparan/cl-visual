@@ -43,5 +43,6 @@
 	   #:lookat
 	   #:projection-matrix
 	   #:modelview-matrix
+	   #:imouse
 	   #:vfuv))
 

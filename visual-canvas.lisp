@@ -300,7 +300,8 @@
 	    (camera :vec3)
 	    (lookat :vec3)
 	    (projection-matrix :mat4)
-	    (modelview-matrix :mat4))
+	    (modelview-matrix :mat4)
+	    (imouse :vec3))
 	 (:vertex ((pos :vec2))
 		  (values
 		   (v! pos 0.0 1.0)
@@ -377,6 +378,23 @@
       (cond ((ns:ctrl-p event) (gfx:track-mouse-zoom camera  (- x) (- y) .1))
     	    ((ns:shift-p event) (gfx:track-mouse-pan camera (- x) y .1))
     	    (t (gfx:track-mouse-spin camera x (- y) .1))))))
+
+
+(defmethod ns:mouse-moved ((view visual-canvas) event location-x location-y)
+  (declare (ignorable event))
+  (when (use-mouse view)
+    (setf (imouse (renderer view)) (list location-x location-y (nth 2 (imouse (renderer view)))))))
+
+(defmethod ns:mouse-down ((view visual-canvas) event location-x location-y)
+  (declare (ignorable event location-x location-y))
+  (when (use-mouse view)
+    (setf (nth 2 (imouse (renderer view))) 1.0)))
+
+(defmethod ns:mouse-up ((view visual-canvas) event location-x location-y)
+  (declare (ignorable event location-x location-y))
+  (when (use-mouse view)
+    (setf (nth 2 (imouse (renderer view))) 0.0)))
+
 
 (defun gfx::reset-visual-camera (&key (eye-x 0.0) (eye-y 0.0) (eye-z 5.0)
 				      (center-x 0.0) (center-y 0.0) (center-z 0.0))
