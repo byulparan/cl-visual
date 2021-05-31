@@ -164,6 +164,63 @@
 
 
 ;;; 
+;;; cubemap
+;;;
+(defmethod init-texture-device (view (device (eql :cubemap)) texture-device)
+  (declare (ignorable view))
+  (assert (= (length (tex :src)) 6) nil "length of cubemap's src should be 6")
+  (flet ((load-image (src)
+	   (let* ((full-path (uiop:truenamize src)))
+	         (assert full-path nil "~s : can't find image file" device)
+	     (setf full-path (namestring full-path))
+	     (let* ((image (gethash full-path (tex-image-table (renderer *visual-canvas*)))))
+	       (unless image
+		 (setf image (cg:load-image full-path)
+		       (gethash full-path (tex-image-table (renderer *visual-canvas*))) image))
+	       image))))
+    (let* ((images (mapcar #'load-image (tex :src)))
+	   (texture (gl:gen-texture))
+	   (target :texture-cube-map)
+	   (format (ecase (cg:image-bits-per-pixel (car images))
+		     (32 (list :rgba8 :rgba))
+		     (24 (list :rgb8 :rgb))
+		     (8 (list :red :red))))
+	   (w (cg:image-width (car images)))
+	   (h (cg:image-height (car images)))
+	   (filter (filter :linear))
+	   (wrap (wrap :clamp-to-edge))
+	   (mipmap (tex :mipmap)))
+      (gl:bind-texture target texture)
+      (loop for face in '(:texture-cube-map-positive-x
+			  :texture-cube-map-negative-x
+			  :texture-cube-map-positive-y
+			  :texture-cube-map-negative-y
+			  :texture-cube-map-positive-z
+			  :texture-cube-map-negative-z)
+	    for i from 0
+	    do (gl:tex-image-2d face 0 (first format) w h 0 (second format) :unsigned-byte
+				(cg:image-bitmap-data (nth i images))))
+      (gl:tex-parameter target :texture-mag-filter filter)
+      (gl:tex-parameter target :texture-min-filter (if mipmap :linear-mipmap-linear filter))
+      (gl:tex-parameter target :texture-wrap-s wrap)
+      (gl:tex-parameter target :texture-wrap-t wrap)
+      (gl:tex-parameter target :texture-wrap-r wrap)
+      (when mipmap (gl:generate-mipmap target))
+      (gl:bind-texture target 0)
+      (list device :tex-id texture :target target))))
+
+
+(defmethod update-texture-device (view (device (eql :cubemap)) texture-device)
+  (declare (ignorable view device))
+  (gl:bind-texture (tex :target) (tex :tex-id)))
+
+(defmethod release-texture-device (view (device (eql :cubemap)) texture-device)
+  (declare (ignorable view device))
+  (gl:delete-texture (tex :tex-id)))
+
+
+
+;;; 
 ;;; bitmap-context
 ;;;
 (defmethod init-texture-device (view (device (eql :bitmap-context)) texture-device)
