@@ -535,7 +535,7 @@
       (when need-update
 	(format t "update ichannel type for ~a~%" (gfx::%pipeline-name pipeline))
 	(force-output)
-	(gfx::update-source pipeline))
+	(gfx::update-pipeline pipeline))
       (when (gl-canvas view)
 	(setf (gl-canvas view) (make-instance (gl-canvas view) :width (gfx:width view) :height (gfx:height view)
 					      :camera (gfx:camera view)))
