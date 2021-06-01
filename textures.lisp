@@ -499,8 +499,7 @@
 	 (output (tex :output)))
     (with-cgl-context ((cgl-context renderer))
       (gfx:with-fbo ((fbo renderer))
-	(gfx:release canvas))
-      (gfx:release-environment canvas))
+	(gfx:release canvas)))
     (when output
       (remhash output *io-surface-table*))
     (release renderer)
@@ -588,8 +587,7 @@
 
 (defmethod gfx:release ((view shader-surface))
   (when (gl-canvas view)
-    (gfx:release (gl-canvas view))
-    (gfx:release-environment (gl-canvas view)))
+    (gfx:release (gl-canvas view)))
   (loop for device in (texture-devices view)
 	do (release-texture-device view (car device) (cdr device))))
 
@@ -695,8 +693,7 @@
       (let* ((fbo (if (tex :multisample) (fbo renderer)
 		    (gfx::output-fbo (fbo renderer)))))
 	(gfx:with-fbo (fbo)
-	  (gfx:release surface)))
-      (gfx:release-environment surface))
+	  (gfx:release surface))))
     (when output
       (remhash output *io-surface-table*))
     (release renderer)

@@ -12,5 +12,9 @@
 (defmethod draw ((view gl-canvas)))
 (defmethod release ((view gl-canvas)))
 
+(defmethod release :after ((view gl-canvas))
+  (gfx:release-environment view))
+
+
 (export '(gl-canvas init draw release projection-matrix modelview-matrix)
 	:gfx)
