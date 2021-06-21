@@ -332,7 +332,8 @@
 					     :pointer (ns:autorelease (ns:make-ns-string ,window-name)))
 				    (when (and ,size (not (ns:objc (cl-visual::window cl-visual::*visual-canvas*) "isFullscreen" :bool)))
 				      (let* ((window (window *visual-canvas*))
-					     (frame (ns:objc-stret ns:rect window "frame")))
+					     (frame #+x86-64 (ns:objc-stret ns:rect window "frame")
+						    #+arm64 (ns:objc window "frame" (:struct ns:rect))))
 					(ns:objc (window *visual-canvas*) "setFrame:display:"
 						 (:struct ns:rect) (ns:make-rect (ns:rect-x frame)
 										 (+ (ns:rect-y frame)
