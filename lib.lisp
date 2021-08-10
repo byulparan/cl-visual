@@ -27,8 +27,8 @@
      (export ',name)))
 
 (define-macro-library with-uv ((uv &optional (normal-uv 'uvn)) &body body)
-  `(let ((,normal-uv (/ (xy gl-frag-coord) (xy iresolution)))
-	 (,uv (- (* ,normal-uv 2.0) 1.0)))
+  `(let* ((,normal-uv (/ (xy gl-frag-coord) (xy iresolution)))
+	  (,uv (- (* ,normal-uv 2.0) 1.0)))
      (setf (x ,uv) (* (x ,uv) (/ (x iresolution) (y iresolution))))
      ,@body))
 
@@ -51,13 +51,12 @@
 	    (,rd-var (* ,var (normalize (v! ,uv ,dist)))))
        ,@body)))
 
-(define-macro-library with-raymarch ((uv-var rd-var ro ta &optional (dist 2.0)) &body body)
-  `(with-uv (,uv-var)
+(define-macro-library with-raymarch ((uv-var rd-var ro ta &optional (uvn-var 'uvn) (dist 2.0)) &body body)
+  `(with-uv (,uv-var ,uvn-var)
      (let* (,ro
 	    ,ta)
        (with-camera (,rd-var ,uv-var ,(car ro) ,(car ta) (v! .0 1.0 .0) ,dist)
 	 ,@body))))
-
 
 (define-macro-library with-hybrid ((ro rd depth) &body body)
   `(let* ((uv vfuv)
