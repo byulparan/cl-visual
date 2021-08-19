@@ -245,10 +245,11 @@
 (defmethod init-texture-device (view (device av:player) texture-device)
   (declare (ignorable view texture-device))
   (let* ((texture-cache (core-video:make-texture-cache (cgl-context view)
-						       (pixel-format view))))
+						       (pixel-format view)))
+	 (target (tex :target)))
     (list device
 	  :texture-cache texture-cache
-	  :target (tex :target))))
+	  :target (if target target :texture-rectangle))))
 
 (defmethod update-texture-device (view (device av:player) texture-device)
   (declare (ignorable view))
@@ -468,9 +469,9 @@
 (defmethod update-texture-device (view (device (eql :gl-canvas)) texture-device)
   (declare (ignore device))
   (let* ((width (width view))
-  	 (height (height view))
-  	 (renderer (tex :renderer))
-  	 (canvas (tex :gl-canvas))
+	 (height (height view))
+	 (renderer (tex :renderer))
+	 (canvas (tex :gl-canvas))
 	 (output (tex :output)))
     (when (and (not (tex :fixed-size))
 	       (or (/= width (width renderer))
@@ -492,10 +493,11 @@
 	(gfx:draw canvas))
       (gl:flush))))
 
+
 (defmethod release-texture-device (view (device (eql :gl-canvas)) texture-device)
   (declare (ignore view device))
   (let* ((renderer (tex :renderer))
-  	 (canvas (tex :gl-canvas))
+	 (canvas (tex :gl-canvas))
 	 (output (tex :output)))
     (with-cgl-context ((cgl-context renderer))
       (gfx:with-fbo ((fbo renderer))

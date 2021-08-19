@@ -406,8 +406,20 @@
     t))
 
 
+
+(defun gfx::toggle-fullscreen ()
+  (ns:with-event-loop nil
+    (when *visual-canvas*
+      (ns:toggle-fullscreen (ns::cocoa-ref (window *visual-canvas*))))))
+
+(defun gfx::shader-close ()
+  (ns:with-event-loop nil
+    (when *visual-canvas*
+      (ns:window-close (ns::cocoa-ref (window *visual-canvas*))))))
+
+
 (gfx::clear-pipeline)
 
-(export '(gfx::define-shader gfx::start-shader gfx::clear-pipeline gfx::add-uniform gfx::reset-visual-camera) :gfx)
+(export '(gfx::define-shader gfx::start-shader gfx::toggle-fullscreen gfx::shader-close gfx::clear-pipeline gfx::add-uniform gfx::reset-visual-camera) :gfx)
 
 
