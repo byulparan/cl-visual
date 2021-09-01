@@ -18,18 +18,21 @@
 	  do (gfx::add-uniform vol :float))
     (gfx::add-uniform 'iglobal-time :float)
     (gfx::add-uniform 'itime :float)
-    (gfx::add-uniform 'iresolution :vec2)))
+    (gfx::add-uniform 'iresolution :vec2)
+    (values)))
 
 
 
 (gfx:defpipeline (draw-framebuffer :version 120) ((image :sampler-2d-rect)
 						  (image-resolution :float)
 						  (gfx::iresolution :vec2))
-  (:vertex ((pos :vec2) (coord :vec2))
-	   (values (v! pos .0 1.0)
-		   coord))
-  (:fragment ((c :vec2))
-	     (texture image (* c gfx::iresolution image-resolution))))
+  (:vertex (:in ((pos :vec2) (coord :vec2))
+	    :out ((v-coord :vec2)))
+	   (progn
+	     (setf v-coord coord)
+	     (v! pos .0 1.0)))
+  (:fragment (:in ((v-coord :vec2)))
+	     (texture image (* v-coord gfx::iresolution image-resolution))))
 
 (defclass visual-canvas (ns:opengl-view gfx:shader-environment)
   ((mailbox
@@ -302,11 +305,12 @@
 	    (projection-matrix :mat4)
 	    (modelview-matrix :mat4)
 	    (imouse :vec3))
-	 (:vertex ((pos :vec2))
-		  (values
-		   (v! pos 0.0 1.0)
-		   pos))
-	 (:fragment ((vfuv :vec2))
+	 (:vertex (:in ((pos :vec2))
+		   :out ((v-pos :vec2)))
+		  (progn
+		    (setq v-pos pos)
+		    (v! pos 0.0 1.0)))
+	 (:fragment (:in ((v-pos :vec2)))
 		    (progn ,@body)))
        ',name))
 

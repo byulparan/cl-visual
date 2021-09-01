@@ -1,43 +1,47 @@
 (in-package :post-fx)
 
 (gfx:defpipeline draw-fx ((source :sampler-2d-rect) (effect :sampler-2d-rect))
-  (:vertex ((pos :vec2) (coord :vec2))
-	   (values
-	    (v! pos 0.0 1.0)
-	    coord))
-  (:fragment ((c :vec2))
+  (:vertex (:in ((pos :vec2) (coord :vec2))
+	    :out ((v-coord :vec2)))
+	   (progn
+	     (setf v-coord coord)
+	     (v! pos 0.0 1.0)))
+  (:fragment (:in ((v-coord :vec2)))
 	     (+
-	      (sl:texture! source c)
-	      (sl:texture! effect c))))
+	      (sl:texture! source v-coord)
+	      (sl:texture! effect v-coord))))
 
 (gfx:defpipeline bloom-alpha-filter ((tex :sampler-2d-rect) (threshold :float))
-  (:vertex ((pos :vec2) (coord :vec2))
-	   (values
-	    (v! pos 0.0 1.0)
-	    coord))
-  (:fragment ((c :vec2))
-	     (let* ((color (sl:texture! tex c))
+  (:vertex (:in ((pos :vec2) (coord :vec2))
+	    :out ((v-coord :vec2)))
+	   (progn
+	     (setf v-coord coord)
+	     (v! pos 0.0 1.0)))
+  (:fragment (:in ((v-coord :vec2)))
+	     (let* ((color (sl:texture! tex v-coord))
 		    (alpha (w color)))
 	       (if (> alpha threshold) (v! (xyz color) 1.0)
 		 (vec4 0.0)))))
 
 (gfx:defpipeline bloom-color-filter ((tex :sampler-2d-rect) (threshold :float))
-  (:vertex ((pos :vec2) (coord :vec2))
-	   (values
-	    (v! pos 0.0 1.0)
-	    coord))
-  (:fragment ((c :vec2))
-	     (let* ((color (sl:texture! tex c)))
+  (:vertex (:in ((pos :vec2) (coord :vec2))
+	    :out ((v-coord :vec2)))
+	   (progn
+	     (setf v-coord coord)
+	     (v! pos 0.0 1.0)))
+  (:fragment (:in ((v-coord :vec2)))
+	     (let* ((color (sl:texture! tex v-coord)))
 	       (if (> (max (x color) (max (y color) (z color))) threshold)
 		   color
 		 (vec4 0.0)))))
 
 (gfx:defpipeline bloom ((tex :sampler-2d-rect) (horizontal :int) (offset :float) (power :float))
-  (:vertex ((pos :vec2) (coord :vec2))
-	   (values
-	    (v! pos 0.0 1.0)
-	    coord))
-  (:fragment ((c :vec2))
+  (:vertex (:in ((pos :vec2) (coord :vec2))
+	    :out ((v-coord :vec2)))
+	   (progn
+	     (setq v-coord coord)
+	     (v! pos 0.0 1.0)))
+  (:fragment (:in ((v-coord :vec2)))
 	     (let* ((weight (make-array :float 5)))
 	       (setf (aref weight 0) (* 0.3027d0 power)
 		     (aref weight 1) 0.195946d0
@@ -45,17 +49,17 @@
 		     (aref weight 3) 0.054054d0
 		     (aref weight 4) 0.016216d0)
 	       (let* ((tex-offset (/ offset (texture-size tex)))
-		      (result (* (xyz (sl:texture! tex c)) (aref weight 0))))
+		      (result (* (xyz (sl:texture! tex v-coord)) (aref weight 0))))
 		 (if (= horizontal 1)
 		     (loop for i from 1 below 5
-			   do (incf result (* (xyz (sl:texture! tex (+ c (v! (* i (x tex-offset)) 0.0))))
+			   do (incf result (* (xyz (sl:texture! tex (+ v-coord (v! (* i (x tex-offset)) 0.0))))
 					      (aref weight i)))
-			      (incf result (* (xyz (sl:texture! tex (- c (v! (* i (x tex-offset)) 0.0))))
+			      (incf result (* (xyz (sl:texture! tex (- v-coord (v! (* i (x tex-offset)) 0.0))))
 					      (aref weight i)) ))
 		   (loop for i from 1 below 5
-			 do (incf result (* (xyz (sl:texture! tex (+ c (v! 0.0 (* i (y tex-offset))))))
+			 do (incf result (* (xyz (sl:texture! tex (+ v-coord (v! 0.0 (* i (y tex-offset))))))
 					    (aref weight i)))
-			    (incf result (* (xyz (sl:texture! tex (- c (v! 0.0 (* i (y tex-offset))))))
+			    (incf result (* (xyz (sl:texture! tex (- v-coord (v! 0.0 (* i (y tex-offset))))))
 					    (aref weight i)))))
 		 (v! result 1.0)))))
 
