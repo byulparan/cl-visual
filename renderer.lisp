@@ -169,7 +169,7 @@
 		(mapcar #'second (subseq (gfx::%pipeline-uniforms pipeline) 0 8))
 		(gfx::%pipeline-name pipeline))
 	(force-output)
-	(gfx::update-pipeline pipeline)))))
+	(gfx::compile-pipeline pipeline)))))
 
 (defun reinit-visual-renderer (renderer options &optional scene-size)
   (with-cgl-context ((cgl-context renderer))
