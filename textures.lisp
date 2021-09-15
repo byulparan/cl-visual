@@ -364,6 +364,7 @@
 ;;; simple-array singloe-float
 (defmethod init-texture-device (view (device #+sbcl sb-kernel::simple-array-single-float
 					     #+ccl ccl::simple-short-float-vector
+					     #+ecl vector
 					     #+lispworks vector)
 				texture-device)
   (declare (ignorable view texture-device))
@@ -382,9 +383,8 @@
 
 (defmethod update-texture-device (view (device #+sbcl sb-kernel::simple-array-single-float
 					        #+ccl ccl::simple-short-float-vector
-						#+lispworks vector)
-				  
-				  
+						#+lispworks vector
+						#+ecl vector)
 				  texture-device)
   (declare (ignore view))
   (gl:bind-texture (tex :target) (tex :tex-id))
@@ -393,7 +393,8 @@
 
 (defmethod release-texture-device (view (device #+sbcl sb-kernel::simple-array-single-float
 						#+ccl ccl::simple-short-float-vector
-						#+lispworks vector)
+						#+lispworks vector
+						#+ecl vector)
 				   texture-device)
   (declare (ignore view device))
   (gl:delete-texture (tex :tex-id)))
