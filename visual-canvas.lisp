@@ -306,11 +306,11 @@
 	    (modelview-matrix :mat4)
 	    (imouse :vec3))
 	 (:vertex (:in ((pos :vec2))
-		   :out ((v-pos :vec2)))
+		   :out ((vfuv :vec2)))
 		  (progn
-		    (setq v-pos pos)
+		    (setq vfuv pos)
 		    (v! pos 0.0 1.0)))
-	 (:fragment (:in ((v-pos :vec2)))
+	 (:fragment (:in ((vfuv :vec2)))
 		    (progn ,@body)))
        ',name))
 
