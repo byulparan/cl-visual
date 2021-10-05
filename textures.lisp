@@ -444,6 +444,7 @@
 	 (width (if fixed-size (first (tex :size)) (width view)))
 	 (height (if fixed-size (second (tex :size)) (height view)))
 	 (renderer (make-instance 'renderer :width width :height height :core-profile core-profile))
+	 (fbo nil)
 	 (gl-canvas (make-instance (tex :src) :width width :height height
 				   :camera (if (tex :shared-camera) (camera (renderer *visual-canvas*))
 					     (make-instance 'gfx:camera))))
@@ -452,8 +453,9 @@
     (when output
       (setf (gethash output *io-surface-table*) (iosurface renderer)))
     (with-cgl-context ((cgl-context renderer))
-      (gfx:with-fbo ((fbo renderer))
-	(gfx:init gl-canvas)))
+      (let ((fbo (if (tex :multisample) (fbo renderer) (gfx::output-fbo (fbo renderer)))))
+	(gfx:with-fbo (fbo)
+	  (gfx:init gl-canvas))))
     (gl:bind-texture target texture)
     (cgl:tex-image-io-surface-2d (cgl-context view) target
 				 :rgba width height :bgra
@@ -463,6 +465,7 @@
 	  :tex-id texture
 	  :target target
 	  :renderer renderer
+	  :multisample (tex :multisample)
 	  :gl-canvas gl-canvas
 	  :fixed-size fixed-size
 	  :output output)))
@@ -488,10 +491,11 @@
       (gl:bind-texture (tex :target) 0))
     (gl:bind-texture (tex :target) (tex :tex-id))
     (with-cgl-context ((cgl-context renderer))
-      (gfx:with-fbo ((fbo renderer))
-	(setf (gfx:projection-matrix canvas) (kit.math:perspective-matrix 45.0 (/ width height) .1 10000.0)
-	      (gfx:modelview-matrix canvas) (gfx:eval-camera (gfx:camera canvas)))
-	(gfx:draw canvas))
+      (let* ((fbo (if (tex :multisample) (fbo renderer) (gfx::output-fbo (fbo renderer)))))
+	(gfx:with-fbo (fbo)
+	  (setf (gfx:projection-matrix canvas) (kit.math:perspective-matrix 45.0 (/ width height) .1 10000.0)
+		(gfx:modelview-matrix canvas) (gfx:eval-camera (gfx:camera canvas)))
+	  (gfx:draw canvas)))
       (gl:flush))))
 
 
@@ -501,8 +505,9 @@
 	 (canvas (tex :gl-canvas))
 	 (output (tex :output)))
     (with-cgl-context ((cgl-context renderer))
-      (gfx:with-fbo ((fbo renderer))
-	(gfx:release canvas)))
+      (let* ((fbo (if (tex :multisample) (fbo renderer) (gfx::output-fbo (fbo renderer)))))
+	(gfx:with-fbo (fbo)
+	  (gfx:release canvas))))
     (when output
       (remhash output *io-surface-table*))
     (release renderer)
