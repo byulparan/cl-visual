@@ -342,9 +342,9 @@
 						 (:struct ns:rect) (ns:make-rect (ns:rect-x frame)
 										 (+ (ns:rect-y frame)
 										    (- (ns:rect-height frame)
-										       (+ 22 ,(third size))))
+										       (+ 28 ,(third size))))
 										 ,(second size)
-										 (+ 22 ,(third size)))
+										 (+ 28 ,(third size)))
 						   :int 0)))))
 	   (ns:with-event-loop (:waitp t)
 	     (let* ((renderer (make-instance 'visual-renderer :reinit-time ,reinit-time
