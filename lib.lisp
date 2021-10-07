@@ -192,7 +192,7 @@
 (define-function-library syphon-ratio ((uvn :vec2) (iresolution :vec2) (width :float) (height :float) (x-ratio :float) (h-ratio :float))
   (let* ((w (* (x iresolution) x-ratio (/ height (y iresolution))))
 	 (h (* height (+ (y uvn) (* (/ .5 h-ratio) (- 1.0 h-ratio))) h-ratio)))
-    (v! (* w (- (x uvn) (* .25 (- 1.0 (/ width w))))) h)))
+    (v! (* w (- (x uvn) (* .5 (- 1.0 (/ width w))))) h)))
 
 (define-function-library xrot ((tt :float))
   (m! 1.0 0.0 0.0
