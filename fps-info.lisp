@@ -10,7 +10,7 @@
 
 (defun make-fps-info ()
   (let* ((fps-info (%make-fps-info))
-	 (font (ftgl:create-texture-font "/System/Library/Fonts/Monaco.dfont")))
+	 (font (ftgl:create-texture-font "/System/Library/Fonts/Monaco.ttf")))
     (ftgl:set-font-face-size font 24 72)
     (setf (fps-font fps-info) font)
     fps-info))
