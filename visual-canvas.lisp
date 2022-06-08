@@ -382,7 +382,7 @@
       (if (> .004 (abs y)) (setf y 0.0))
       (cond ((ns:ctrl-p event) (gfx:track-mouse-zoom camera  (- x) (- y) .1))
     	    ((ns:shift-p event) (gfx:track-mouse-pan camera (- x) y .1))
-    	    (t (gfx:track-mouse-spin camera x (- y) .1))))))
+    	    (t (gfx:track-mouse-spin camera (- x) y .1))))))
 
 
 (defmethod ns:mouse-moved ((view visual-canvas) event location-x location-y)
