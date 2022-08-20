@@ -354,6 +354,7 @@
 	 				   :scene-ratio ,scene-ratio
 	 				   :renderer renderer
 	 				   :retina ,retina
+					   :animate t
 	 				   :core-profile nil))
 	 	    (window (make-instance 'ns:window
 			      :rect (ns:in-screen-rect (ns:make-rect 0 1000 ,(if size (second size) 720) ,(if size (third size) 450)))

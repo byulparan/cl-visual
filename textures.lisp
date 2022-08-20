@@ -436,8 +436,7 @@
 ;;; gl-canvas
 (defmethod init-texture-device (view (device (eql :gl-canvas)) texture-device)
   (declare (ignorable device))
-  (let* ((core-profile (if (not (find :core-profile texture-device)) t
-			 (tex :core-profile)))
+  (let* ((core-profile (tex :core-profile))
 	 (texture (gl:gen-texture))
 	 (target :texture-rectangle)
 	 (fixed-size (tex :size))
@@ -617,8 +616,7 @@
 
 (defmethod init-texture-device (view (device (eql :shader)) texture-device)
   (declare (ignorable device))
-  (let* ((core-profile (if (not (find :core-profile texture-device)) t
-			 (tex :core-profile)))
+  (let* ((core-profile t)
 	 (texture (gl:gen-texture))
 	 (target :texture-rectangle)
 	 (fixed-size (tex :size))

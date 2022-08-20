@@ -71,7 +71,8 @@
 						    -1.0  1.0 0.0 1.0
 						    -1.0  1.0 0.0 1.0
 						    1.0 -1.0 1.0 0.0
-						    1.0  1.0 1.0 1.0))
+						    1.0  1.0 1.0 1.0)
+					      :core-profile t)
 	       :reader gpu-stream)
    (filter-fbo :accessor filter-fbo)
    (bloom-fbo :accessor bloom-fbo)
