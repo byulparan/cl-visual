@@ -2,12 +2,12 @@
   :serial t
   :depends-on (:gfx-glsl
 	       :cl-nextstep
-	       :ftgl
-	       :cl-syphon
 	       :sc-internal
 	       #+sbcl :sb-concurrency
 	       #-sbcl #:safe-queue)
   :components ((:file "package")
+	       (:file "ftgl")
+	       (:file "syphon")
 	       (:file "gl-canvas")
 	       (:file "renderer")
 	       (:file "fps-info")

@@ -1,3 +1,4 @@
+
 (defpackage :cl-visual
   (:use :cl :alexandria)
   #-sbcl (:import-from :safe-queue
@@ -46,3 +47,29 @@
 	   #:imouse
 	   #:vfuv))
 
+
+
+(defpackage :ftgl
+  (:use #:cl)
+  (:export #:create-pixmap-font
+	   #:create-texture-font
+	   #:create-extrude-font
+	   #:set-font-face-size
+	   #:render-font
+	   #:destroy-font))
+
+
+
+(defpackage :syphon
+  (:use :cl)
+  (:export #:make-server
+	   #:publish-frame
+	   #:stop-server
+	   #:available-servers
+	   #:get-server
+	   #:make-client
+	   #:new-frame-image
+	   #:valid-p
+	   #:texture-name
+	   #:texture-size
+	   #:stop-client))
