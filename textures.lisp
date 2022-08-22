@@ -3,75 +3,6 @@
 (defmacro tex (key)
   `(getf texture-device ,key))
 
-;;; 
-;;; audio-frame
-;;; 
-(defun initialize-audio-frame (frame-bus)
-  (setf (getf (audio-data *visual-canvas*) :scope-synth)
-    (sc:proxy :cl-visual-audio-frame
-      (sc:with-controls ((bus frame-bus))
-	(let* ((audio-data (audio-data *visual-canvas*))
-	       (wavebuf (getf audio-data :wavebuf))
-	       (freqbuf (getf audio-data :freqbuf))
-	       (phase (- 1 (* 2 (sc:reciprocal 8192))))
-	       (fft-buf (sc:local-buf 8192 1))
-	       (n-samples (* 0.5 (- (sc:buf-samples.ir fft-buf) 2)))
-	       (signal (sc:mix (sc:in.ar bus 2)))
-	       (freqs (sc:fft fft-buf signal 0.5 1))
-	       (indexer (+ n-samples 2
-			   (* (sc:lf-saw.ar (/ 2 (sc:buf-dur.ir fft-buf)) phase)
-			      n-samples)))
-	       (indexer (sc::round~  indexer 2))
-	       (s0 (sc:buf-rd.ar 1 fft-buf indexer 1 1))
-	       (s1 (sc:buf-rd.ar 1 fft-buf (+ 1 indexer) 1 1))
-	       (lin-mag (sqrt (+ (* s0 s0) (* s1 s1)))))
-	  (declare (ignorable freqs))
-	  (sc:record-buf.ar lin-mag freqbuf)
-	  (sc:record-buf.ar (* 1.0 signal) wavebuf)
-	  0.0))
-      :to (audio-group *visual-canvas*)
-      :fade .0)))
-
-(defmethod init-texture-device (view (device (eql :audio-frame)) texture-device)
-  (let* ((frame-bus (tex :frame-bus))
-	 (synth (getf (audio-data *visual-canvas*) :scope-synth))
-	 (texture (gl:gen-texture))
-	 (target :texture-rectangle)
-	 (filter (or (getf texture-device :filter) :linear))
-	 (wrap :clamp-to-edge))
-    (gl:bind-texture  target texture)
-    (gl:tex-parameter target :texture-mag-filter filter)
-    (gl:tex-parameter target :texture-min-filter filter)
-    (gl:tex-parameter target :texture-wrap-s wrap)
-    (gl:tex-parameter target :texture-wrap-t wrap)
-    (gl:bind-texture  target 0)
-    (setf frame-bus (if frame-bus frame-bus 0))
-    (if synth (sc::ctrl synth :bus frame-bus)
-      (initialize-audio-frame frame-bus))    
-    (list device
-	  :context view :tex-id texture :target target)))
-
-(defmethod update-texture-device (view (device (eql :audio-frame)) texture-device)
-  (declare (ignorable view device))
-  (let* ((audio-data (audio-data *visual-canvas*))
-	 (wavebuf (sc:buffer-data (getf audio-data :wavebuf)))
-	 (freqbuf (sc:buffer-data (getf audio-data :freqbuf)))
-	 (scope-buffer (getf audio-data :scope-buffer)))
-    (cffi:with-pointer-to-vector-data (wavebuf-ptr wavebuf)
-      (cffi:with-pointer-to-vector-data (freqbuf-ptr freqbuf)
-	(cffi:foreign-funcall "memcpy" :pointer scope-buffer :pointer freqbuf-ptr :sizet (* 4096 4))
-	(cffi:foreign-funcall "memcpy" :pointer (cffi:inc-pointer scope-buffer (* 4096 4))
-				       :pointer wavebuf-ptr
-				       :sizet (* 4096 4))))
-    (gl:bind-texture (tex :target) (tex :tex-id))
-    (gl:tex-image-2d (tex :target) 0 :r32f 4096 2 0 :red :float scope-buffer)))
-
-(defmethod release-texture-device (view (device (eql :audio-frame)) texture-device)
-  (declare (ignorable view device texture-device))
-  (let* ((synth (getf (audio-data *visual-canvas*) :scope-synth)))
-    (sc:free synth)
-    (setf (getf (audio-data *visual-canvas*) :scope-synth) nil)))
-
 
 ;; previous frame
 (defmethod init-texture-device (view (device (eql :previous-frame)) texture-device)
@@ -399,35 +330,6 @@
   (declare (ignore view device))
   (gl:delete-texture (tex :tex-id)))
 
-;;; Buffer of SuperCollider
-(defmethod init-texture-device (view (device sc::buffer) texture-device)
-  (declare (ignorable view texture-device))
-  (let* ((texture (gl:gen-texture))
-	 (target :texture-rectangle)
-	 (filter (or (getf texture-device :filter) :nearest))
-	 (wrap :clamp-to-edge))
-    (gl:bind-texture  target texture)
-    (gl:tex-parameter target :texture-min-filter filter)
-    (gl:tex-parameter target :texture-mag-filter filter)
-    (gl:tex-parameter target :texture-wrap-s wrap)
-    (gl:tex-parameter target :texture-wrap-t wrap)
-    (gl:bind-texture  target 0)
-    (list device
-	  :tex-id texture :target target)))
-
-(defmethod update-texture-device (view (device sc::buffer) texture-device)
-  (declare (ignore view))
-  (gl:bind-texture (tex :target) (tex :tex-id))
-  (cffi:with-foreign-slots ((sc::snd-bufs) (sc::sc-world sc::*s*) (:struct sc::world))
-    (let* ((data (getf (cffi:mem-aref sc::snd-bufs '(:struct sc::snd-buf)
-				      (sc::bufnum device)) 'sc::data)))
-      (gl:tex-image-2d (tex :target) 0 :r32f (min 44100 (* (sc:chanls device) (sc:frames device)))
-		       1 0 :red :float data))))
-
-(defmethod release-texture-device (view (device sc::buffer) texture-device)
-  (declare (ignore view device))
-  (gl:delete-texture (tex :tex-id)))
-
 
 ;;
 (defvar *io-surface-table* (make-hash-table))
@@ -568,14 +470,13 @@
 				:ichannel0 0 :ichannel1 1 :ichannel2 2 :ichannel3 3
 				:ichannel4 4 :ichannel5 5 :ichannel6 6 :ichannel7 7
 				:iglobal-time ,time :itime ,time
-				:ivolume0 ,(sc:control-get-sync *ivolume-index*)
-				,@(loop for i from 0 below (- *num-ivolume* 1)
-					append `(,(intern (format nil "IVOLUME~d" (+ i 1)) :keyword)
-						 ,(sc:control-get-sync (+ *ivolume-index* i 1))))
+				,@(loop for i from 0 below *num-ivolume*
+					append `(,(intern (format nil "IVOLUME~d" i) :keyword)
+						 ,(funcall *visual-volume-function* i)))
 				,@(loop for i from 0 below *num-icontrol*
 					append
 					`(,(intern (format nil "ICONTROL~d" i) :keyword)
-					  ,(sc:control-get-sync (+ *icontrol-index* i))))
+					  ,(funcall *visual-control-function* i)))
 				:iresolution ,(list w h)
 				:camera ,(list (gfx::eye-x (gfx:camera view))
 					       (gfx::eye-y (gfx:camera view))

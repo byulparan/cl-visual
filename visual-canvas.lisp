@@ -1,5 +1,9 @@
 (in-package :cl-visual)
 
+
+(defvar *visual-canvas-init-functions* nil)
+(defvar *visual-canvas-release-functions* nil)
+
 (defun gfx::add-uniform (name type)
   (setf (gethash name gfx::*gfx-uniform-table*) (glsl::make-code-object type (ppcre:regex-replace-all "-" (string-downcase name) "_"))))
 
@@ -136,20 +140,8 @@
 	 (h (height (renderer view))))
     (resize-framebuffer view w h))
   (setf (ci-context view) (ci:make-context (ns:cgl-context view) (ns:cgl-pixel-format view)))
-  (unless (audio-data view)
-    (setf (audio-data view) (list :wavebuf (sc:buffer-alloc 4096)
-				  :freqbuf (sc:buffer-alloc 4096)
-				  :scope-buffer (cffi:foreign-alloc :float :count (* 4096 2))
-				  :scope-synth nil)))
-  (let* ((group (sc:make-group :pos :tail :to 0)))
-    (sc:proxy :cl-visual-volumes
-      (progn
-  	(sc:out.kr *ivolume-index* (sc:a2k.kr (sc:lag.ar (abs (sc:mix (sc:in.ar 0 2))) .1)))
-  	(dotimes (i (1- *num-ivolume*))
-  	  (sc:out.kr (+ *ivolume-index* (+ 1 i)) (sc:a2k.kr (sc:lag.ar (abs (sc:mix (sc:in.ar (+ 82 (* i 2)) 2))) .1))))
-  	0.0)
-      :to group)
-    (setf (audio-group view) group)))
+  (dolist (f *visual-canvas-init-functions*)
+    (funcall f view)))
 
 
 (defun convert-size-to-backing (visual-canvas)
@@ -279,7 +271,8 @@
   (when-let ((syphon (syphon view)))
     (syphon:stop-server syphon)
     (ns:release syphon))
-  (sc:free (audio-group view))
+  (dolist (f *visual-canvas-release-functions*)
+    (funcall f view))
   (setf *visual-canvas* nil))
 
 

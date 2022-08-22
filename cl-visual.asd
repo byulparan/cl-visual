@@ -2,7 +2,6 @@
   :serial t
   :depends-on (:gfx-glsl
 	       :cl-nextstep
-	       :sc-internal
 	       #+sbcl :sb-concurrency
 	       #-sbcl #:safe-queue)
   :components ((:file "package")

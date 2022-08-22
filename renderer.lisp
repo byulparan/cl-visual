@@ -1,10 +1,5 @@
 (in-package :cl-visual)
 
-(defvar *num-ivolume* 6)
-(defvar *ivolume-index* 16300)
-(defvar *num-icontrol* 10)
-(defvar *icontrol-index* 16200)
-
 (defclass renderer ()
   ((cgl-context
     :reader cgl-context)
@@ -127,6 +122,18 @@
 (defgeneric release-texture-device (view device texture-device))
 
 
+
+;;; ===========================================================================
+;;;
+;;; for volume / control
+;;;
+
+(defvar *num-ivolume* 6)
+(defvar *num-icontrol* 10)
+(defvar *visual-volume-function* (lambda (n) (declare (ignore n)) 0.0))
+(defvar *visual-control-function* (lambda (n) (declare (ignore n)) 0.0))
+
+
 ;;; ===========================================================================
 
 (defun reinit-shader (renderer new-shader)
@@ -193,14 +200,13 @@
 					:ichannel0 0 :ichannel1 1 :ichannel2 2 :ichannel3 3
 					:ichannel4 4 :ichannel5 5 :ichannel6 6 :ichannel7 7
 					:iglobal-time ,time :itime ,time
-					:ivolume0 ,(sc:control-get-sync *ivolume-index*)
-					,@(loop for i from 0 below (- *num-ivolume* 1)
-						append `(,(intern (format nil "IVOLUME~d" (+ i 1)) :keyword)
-							 ,(sc:control-get-sync (+ *ivolume-index* i 1))))
+					,@(loop for i from 0 below *num-ivolume*
+						append `(,(intern (format nil "IVOLUME~d" i) :keyword)
+							 ,(funcall *visual-volume-function* i)))
 					,@(loop for i from 0 below *num-icontrol*
 						append
 						`(,(intern (format nil "ICONTROL~d" i) :keyword)
-						  ,(sc:control-get-sync (+ *icontrol-index* i))))
+						  ,(funcall *visual-control-function* i)))
 					:iresolution ,(list w h)
 					:camera ,(list (gfx::eye-x (camera renderer))
 						       (gfx::eye-y (camera renderer))
