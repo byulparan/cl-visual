@@ -433,7 +433,7 @@
 				     (init-texture-device view (car device) (cdr device)))
 	      for target = (ecase (getf (cdr texture-device) :target)
 			     (:texture-2d :sampler-2d)
-					      (:texture-rectangle :sampler-2d-rect))
+			     (:texture-rectangle :sampler-2d-rect))
 	      for uniform in (gfx::%pipeline-uniforms pipeline)
 	      when texture-device
 		do (unless (eql (second uniform) target)
@@ -443,7 +443,7 @@
       (when need-update
 	(format t "update ichannel type for ~a~%" (gfx::%pipeline-name pipeline))
 	(force-output)
-	(gfx::update-pipeline pipeline))
+	(gfx::compile-pipeline pipeline))
       (when (gl-canvas view)
 	(setf (gl-canvas view) (make-instance (gl-canvas view) :width (gfx:width view) :height (gfx:height view)
 					      :camera (gfx:camera view)))
