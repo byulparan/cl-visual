@@ -149,3 +149,9 @@
 
 	   #:load-quad-stream))
 
+
+(defpackage :post-fx
+  (:use :cl :glsl)
+  (:export #:bloom
+	   #:set-bloom))
+

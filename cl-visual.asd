@@ -1,6 +1,8 @@
 (asdf:defsystem :cl-visual
   :serial t
   :depends-on (#:cl-nextstep
+	       #:cl-glu
+	       #:cl-glut
 	       #:alexandria
 	       #:cl-ppcre
 	       #:sb-cga
@@ -34,5 +36,4 @@
 	       ;; (:file "cocoa-textures")
 	       (:file "lib")
 	       (:module "post-fx"
-		:components ((:file "package")
-			     (:file "bloom")))))
+		:components ((:file "bloom")))))
