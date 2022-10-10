@@ -16,5 +16,23 @@
   (gfx:release-environment view))
 
 
-(export '(gl-canvas init draw release projection-matrix modelview-matrix)
+
+;; BitmapContext
+(defclass bitmap-context ()
+  ((context :initarg :context :accessor context)))
+
+
+(defmethod init ((view bitmap-context)))
+(defmethod draw ((view bitmap-context)))
+(defmethod release ((view bitmap-context)))
+
+(defmethod width ((view bitmap-context))
+  (cg:bitmap-width (context view)))
+
+(defmethod height ((view bitmap-context))
+  (cg:bitmap-height (context view)))
+
+
+
+(export '(gl-canvas bitmap-context context init draw release projection-matrix modelview-matrix)
 	:gfx)

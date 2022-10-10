@@ -145,7 +145,12 @@
 	 (target :texture-rectangle)
 	 (filter (or (getf texture-device :filter) :linear))
 	 (wrap :clamp-to-edge)
-	 (context (tex :src)))
+	 (fixed-size (tex :size))
+	 (fixed-context (tex :context))
+	 (context (if fixed-context fixed-context (apply #'cg:make-bitmap-context
+							 (if fixed-size fixed-size (list (width view) (height view))))))
+	 (object (make-instance (tex :src) :context context)))
+    (gfx:init object)
     (gl:bind-texture target texture)
     (gl:tex-parameter target :texture-mag-filter filter)
     (gl:tex-parameter target :texture-min-filter filter)
@@ -153,20 +158,32 @@
     (gl:tex-parameter target :texture-wrap-t wrap)
     (gl:bind-texture target 0)
     (list device 
-	  :src context
+	  :fixed-size fixed-size
+	  :fixed-context fixed-context
+	  :object object
 	  :tex-id texture :target target)))
 
 (defmethod update-texture-device (view (device (eql :bitmap-context)) texture-device)
   (declare (ignorable view device))
-  (let* ((context (tex :src))
-	 (w (cg:bitmap-width context))
-	 (h (cg:bitmap-height context))
-	 (data (cg:bitmap-data context)))
+  (let* ((object (tex :object)))
+    (when (and (not (tex :fixed-size))
+	       (not (tex :fixed-context))
+	       (or 
+		(/= (gfx:width object) (width view))
+		(/= (gfx:height object) (height view))))
+      (cg:release-context (gfx:context object))
+      (setf (gfx:context object) (cg:make-bitmap-context (width view) (height view))))
+    (gfx:draw object)
     (gl:bind-texture (tex :target) (tex :tex-id))
-    (gl:tex-image-2d (tex :target) 0 :rgba8 w h 0 :rgba :unsigned-byte data)))
+    (gl:tex-image-2d (tex :target) 0 :rgba8 (gfx:width object) (gfx:height object) 0 :rgba :unsigned-byte
+		     (cg:bitmap-data (gfx:context object)))))
 
 (defmethod release-texture-device (view (device (eql :bitmap-context)) texture-device)
   (declare (ignorable view device))
+  (let* ((object (tex :object)))
+    (gfx:release object)
+    (when (not (tex :fixed-context))
+      (cg:release-context (gfx:context object))))
   (gl:delete-texture (tex :tex-id)))
 
 
