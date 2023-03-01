@@ -64,9 +64,11 @@
 						 collect (when sh (cons (car sh) (file-write-date (car sh))))))
 	  (gl:link-program program))))))
 
-(defmacro with-shader ((program (environment shader-object stream)) &body body)
+(defmacro with-shader ((environment shader-object stream program) &body body)
   `(progn
-     (update-shader-object ,environment ,shader-object)
+     (if (typep ,shader-object 'shader-object) (update-shader-object ,environment ,shader-object)
+       (let* ((pipeline (gethash ,shader-object *all-pipeline-table*)))
+	 (update-pipeline ,environment pipeline)))
      (update-gpu-stream ,environment ,stream)
      (let* ((,program (cadr (getf (shaders ,environment) ,shader-object))))
        (when ,program
