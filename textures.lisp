@@ -351,6 +351,47 @@
 ;;
 (defvar *io-surface-table* (make-hash-table))
 
+;;; io-surface
+(defmethod init-texture-device (view (device (eql :io-surface)) texture-device)
+  (let* ((src (tex :src))
+	 (io-surface (gethash src *io-surface-table*)))
+    (when io-surface
+      (let* ((texture (gl:gen-texture))
+	     (target :texture-rectangle)
+	     (width (io-surface:width io-surface))
+	     (height (io-surface:height io-surface)))
+	(gl:bind-texture target texture)
+	(cgl:tex-image-io-surface-2d (cgl-context view) target
+				     :rgba width height :bgra
+				     :unsigned-int-8-8-8-8-rev io-surface 0)
+	(gl:bind-texture target 0)
+	(list device
+	      :src (tex :src)
+	      :tex-id texture
+	      :target target
+	      :width width
+	      :height height)))))
+
+(defmethod update-texture-device (view (device (eql :io-surface)) texture-device)
+  (declare (ignore device))
+  (let* ((io-surface (gethash (tex :src) *io-surface-table*))
+	 (width (io-surface:width io-surface))
+	 (height (io-surface:height io-surface)))
+    (when (or (/= (tex :width) width)
+	      (/= (tex :height) height))
+      (setf (tex :width) width
+	    (tex :height) height)
+      (gl:bind-texture (tex :target) (tex :tex-id))
+      (cgl:tex-image-io-surface-2d (cgl-context view) (tex :target) :rgba
+				   width height :bgra :unsigned-int-8-8-8-8-rev io-surface 0)
+      (gl:bind-texture (tex :target) 0))
+    (gl:bind-texture (tex :target) (tex :tex-id))))
+
+(defmethod release-texture-device (view (device (eql :io-surface)) texture-device)
+  (declare (ignore view device))
+  (gl:delete-texture (tex :tex-id)))
+
+
 
 ;;; gl-canvas
 (defmethod init-texture-device (view (device (eql :gl-canvas)) texture-device)
@@ -624,43 +665,96 @@
     (release renderer)
     (gl:delete-texture (tex :tex-id))))
 
-;;; io-surface
-(defmethod init-texture-device (view (device (eql :io-surface)) texture-device)
-  (let* ((src (tex :src))
-	 (io-surface (gethash src *io-surface-table*)))
-    (when io-surface
-      (let* ((texture (gl:gen-texture))
-	     (target :texture-rectangle)
-	     (width (io-surface:width io-surface))
-	     (height (io-surface:height io-surface)))
-	(gl:bind-texture target texture)
-	(cgl:tex-image-io-surface-2d (cgl-context view) target
-				     :rgba width height :bgra
-				     :unsigned-int-8-8-8-8-rev io-surface 0)
-	(gl:bind-texture target 0)
-	(list device
-	      :src (tex :src)
-	      :tex-id texture
-	      :target target
-	      :width width
-	      :height height)))))
 
-(defmethod update-texture-device (view (device (eql :io-surface)) texture-device)
-  (declare (ignore device))
-  (let* ((io-surface (gethash (tex :src) *io-surface-table*))
-	 (width (io-surface:width io-surface))
-	 (height (io-surface:height io-surface)))
-    (when (or (/= (tex :width) width)
-	      (/= (tex :height) height))
-      (setf (tex :width) width
-	    (tex :height) height)
+
+
+;;; ci-filter
+
+(defmethod init-texture-device (view (device (eql :ci-filter)) texture-device)
+  (declare (ignorable device))
+  (let* ((core-profile nil)
+	 (texture (gl:gen-texture))
+	 (target :texture-rectangle)
+	 (width (width view))
+	 (height (height view))
+	 (renderer (make-instance 'renderer :width width :height height :core-profile core-profile))
+	 (surface (make-instance 'shader-surface :width width :height height
+				 :renderer renderer :gl-canvas nil
+				 :texture-devices nil))
+	 (src (tex :src)))
+    (resize-framebuffer renderer width height)
+    (with-cgl-context ((cgl-context renderer))
+      (let* ((fbo (if (tex :multisample) (fbo renderer)
+		    (gfx::output-fbo (fbo renderer)))))
+	(gfx:with-fbo (fbo)
+	  (setf src (init-texture-device surface (car src) (cdr src))))))
+    (gl:bind-texture target texture)
+    (cgl:tex-image-io-surface-2d (cgl-context view) target
+				 :rgba width height :bgra
+				 :unsigned-int-8-8-8-8-rev (iosurface renderer) 0)
+    (gl:bind-texture target 0)
+    (list :ci-filter
+	  :tex-id texture
+	  :ci-context (ci:make-context (cgl-context renderer) (pixel-format renderer))
+	  :output-filter (tex :output-filter)
+	  :target target
+	  :renderer renderer
+	  :surface surface
+	  :src src
+	  :multisample (tex :multisample))))
+
+
+(defmethod update-texture-device (view (device (eql :ci-filter)) texture-device)
+  (let* ((width (width view))
+	 (height (height view))
+	 (src (tex :src))
+	 (renderer (tex :renderer))
+	 (surface (tex :surface)))
+    (when (or (/= width (width renderer))
+	      (/= height (height renderer)))
+      (resize-framebuffer renderer width height)
+      (setf (gfx:width surface) width (gfx:height surface) height)
       (gl:bind-texture (tex :target) (tex :tex-id))
-      (cgl:tex-image-io-surface-2d (cgl-context view) (tex :target) :rgba
-				   width height :bgra :unsigned-int-8-8-8-8-rev io-surface 0)
+      (cgl:tex-image-io-surface-2d (cgl-context view) (tex :target)
+				   :rgba width height :bgra
+				   :unsigned-int-8-8-8-8-rev (iosurface renderer) 0)
       (gl:bind-texture (tex :target) 0))
-    (gl:bind-texture (tex :target) (tex :tex-id))))
+    (gl:bind-texture (tex :target) (tex :tex-id))
+    (with-cgl-context ((cgl-context renderer))
+      (let* ((fbo (if (tex :multisample) (fbo renderer)
+		    (gfx::output-fbo (fbo renderer)))))
+	(gfx:with-fbo (fbo)
+	  (gl:active-texture :texture0)
+	  (update-texture-device surface (car src) (cdr src))
+	  (let* ((texture (getf (cdr src) :tex-id))
+		 (fixed-size (getf (cdr src) :fixed-size))
+		 (ci-image (ci:image-from-texture texture (apply #'ns:make-size (if fixed-size fixed-size (list width height)))))
+		 (rect (ns:make-rect 0 0 width height)))
+	    (dolist (filter (tex :output-filter))
+	      (setf ci-image (ci:apply-filter filter ci-image)))
+	    (gl:viewport 0 0 width height)
+	    (gl:matrix-mode :projection)
+	    (gl:load-identity)
+	    (gl:ortho 0 width 0 height -100.0 100.0)
+	    (gl:matrix-mode :modelview)
+	    (gl:load-identity)
+	    (ci:draw-image (tex :ci-context) ci-image rect 
+			   (if fixed-size (ns:make-rect 0 0 (first fixed-size) (second fixed-size)) rect))
+	    (gl:flush)))))))
 
-(defmethod release-texture-device (view (device (eql :io-surface)) texture-device)
+
+
+(defmethod release-texture-device (view (device (eql :ci-filter)) texture-device)
   (declare (ignore view device))
-  (gl:delete-texture (tex :tex-id)))
-
+  (let* ((renderer (tex :renderer))
+	 (surface (tex :surface))
+	 (src (tex :src)))
+    (with-cgl-context ((cgl-context renderer))
+      (let* ((fbo (if (tex :multisample) (fbo renderer)
+		    (gfx::output-fbo (fbo renderer)))))
+	(gfx:with-fbo (fbo)
+	  (release-texture-device surface (car src) (cdr src))
+	  (gfx:release surface))))
+    (release renderer)
+    (ns:release (tex :ci-context))
+    (gl:delete-texture (tex :tex-id))))
