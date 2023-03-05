@@ -7,6 +7,7 @@
   (list :void :bool
 	:float :int
 	:mat2 :mat3 :mat4 :vec2 :vec3 :vec4 :ivec2 :ivec3 :ivec4
+	:bvec2 :bvec3 :bvec4
 	:sampler-2d :sampler-2d-rect :sampler-cube))
 
 (defvar *all-glsl-type* (copy-list *default-glsl-type*))
@@ -42,9 +43,9 @@
     (:bool 1)
     (:int 1)
     (:float 1)
-    ((:vec2 :ivec2) 2)
-    ((:vec3 :ivec3) 3)
-    ((:vec4 :ivec4) 4)
+    ((:vec2 :ivec2 :bvec2) 2)
+    ((:vec3 :ivec3 :bvec3) 3)
+    ((:vec4 :ivec4 :bvec4) 4)
     (:mat2 4)
     (:mat3 9)
     (:mat4 16)))

@@ -56,7 +56,7 @@
 	       (make-code-object type (format nil "~a(~{~a~^,~})"
 					      (string-downcase type)
 					      (mapcar #'code-line rest)))))
-      (cond ((every (lambda (a) (or (vector-p a) (ivector-p a) (number-p a))) rest)
+      (cond ((every (lambda (a) (or (vector-p a) (ivector-p a) (bvector-p a) (number-p a))) rest)
 	     (make-vec (ecase len (2 :vec2) (3 :vec3) (4 :vec4))))
 	    (t (error "You can't make vector with ~a" rest))))))
 
