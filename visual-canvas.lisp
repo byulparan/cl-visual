@@ -207,7 +207,7 @@
       	scene-size)))
 
 (defun apply-filter (canvas width height)
-  (let* ((ciimage (ci:image-from-texture (texture canvas) (ns:make-size width height)))
+  (let* ((ciimage (ci:make-image-from-texture (texture canvas) (ns:make-size width height)))
 	 (rect (ns:make-rect 0 0 width height)))
     (loop for filter in (output-filter canvas)
 	  do (setf ciimage (ci:apply-filter filter ciimage)))

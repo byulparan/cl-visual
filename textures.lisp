@@ -58,7 +58,7 @@
 	 (wrap (or (getf texture-device :wrap) :repeat)))
     (gl:bind-texture target texture)
     (gl:tex-image-2d target 0 (first format) w h 0 (second format) :unsigned-byte
-		     (cg:image-bitmap-data image))
+		     (cg:image-data image))
     (gl:tex-parameter target :texture-mag-filter (if use-mipmap :linear filter))
     (gl:tex-parameter target :texture-min-filter (if use-mipmap :linear-mipmap-linear
 						   filter))
@@ -115,7 +115,7 @@
 			  :texture-cube-map-negative-z)
 	    for i from 0
 	    do (gl:tex-image-2d face 0 (first format) w h 0 (second format) :unsigned-byte
-				(cg:image-bitmap-data (nth i images))))
+				(cg:image-data (nth i images))))
       (gl:tex-parameter target :texture-mag-filter (if use-mipmap :linear filter))
       (gl:tex-parameter target :texture-min-filter (if use-mipmap :linear-mipmap-linear filter))
       (gl:tex-parameter target :texture-wrap-s wrap)
@@ -176,7 +176,7 @@
     (gfx:draw object)
     (gl:bind-texture (tex :target) (tex :tex-id))
     (gl:tex-image-2d (tex :target) 0 :rgba8 (gfx:width object) (gfx:height object) 0 :rgba :unsigned-byte
-		     (cg:bitmap-data (gfx:context object)))))
+		     (cg:context-data (gfx:context object)))))
 
 (defmethod release-texture-device (view (device (eql :bitmap-context)) texture-device)
   (declare (ignorable view device))
@@ -728,7 +728,7 @@
 	  (update-texture-device surface (car src) (cdr src))
 	  (let* ((texture (getf (cdr src) :tex-id))
 		 (fixed-size (getf (cdr src) :fixed-size))
-		 (ci-image (ci:image-from-texture texture (apply #'ns:make-size (if fixed-size fixed-size (list width height)))))
+		 (ci-image (ci:make-image-from-texture texture (apply #'ns:make-size (if fixed-size fixed-size (list width height)))))
 		 (rect (ns:make-rect 0 0 width height)))
 	    (dolist (filter (tex :output-filter))
 	      (setf ci-image (ci:apply-filter filter ci-image)))

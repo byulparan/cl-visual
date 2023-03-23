@@ -27,10 +27,10 @@
 (defmethod release ((view bitmap-context)))
 
 (defmethod width ((view bitmap-context))
-  (cg:bitmap-width (context view)))
+  (cg:context-width (context view)))
 
 (defmethod height ((view bitmap-context))
-  (cg:bitmap-height (context view)))
+  (cg:context-height (context view)))
 
 
 
