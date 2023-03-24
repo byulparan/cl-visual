@@ -197,12 +197,14 @@
 	 (target (tex :target)))
     (list device
 	  :texture-cache texture-cache
-	  :target (if target target :texture-rectangle))))
+	  :target (if target target :texture-rectangle)
+	  :info (tex :info))))
 
 (defmethod update-texture-device (view (device av:player) texture-device)
   (declare (ignorable view))
   (av:with-texture-cache (device (tex :texture-cache) width height)
-    width height))
+    (when (tex :info)
+      (uiop:println (list :player-frame-size width height)))))
 
 (defmethod release-texture-device (view (device av:player) texture-device)
   (declare (ignorable view device))
@@ -215,30 +217,35 @@
 ;;; 
 (defmethod init-texture-device (view (device (eql :live-frame)) texture-device)
   (declare (ignorable view))
-  (let* ((index (tex :src)))
+  (let* ((index (tex :src))
+	 (size (tex :size)))
     (unless index (setf index 0))
-    (let* ((capture (av:make-camera-capture index))
+    (let* ((capture (av:make-camera-capture index :request-size size))
 	   (texture-cache (core-video:make-texture-cache (cgl-context view)
 							 (pixel-format view))))
       (av:start-capture capture)
       (list capture
 	    :release-p t
 	    :texture-cache texture-cache
-	    :target :texture-rectangle))))
+	    :target :texture-rectangle
+	    :info (tex :info)))))
 
 (defmethod init-texture-device (view (device (eql :screen-frame)) texture-device)
   (declare (ignorable view))
   (let* ((rect (tex :src))
-	 (fps (tex :fps)))
-    (let* ((capture (av:make-screen-capture (when rect (apply #'ns:make-rect rect))
-					    (if fps fps 60)))
+	 (fps (tex :fps))
+	 (size (tex :size)))
+    (let* ((capture (av:make-screen-capture :crop-rect (when rect (apply #'ns:make-rect rect))
+					    :min-frame-duration (if fps fps 60)
+					    :request-size size))
 	   (texture-cache (core-video:make-texture-cache (cgl-context view)
 	   						 (pixel-format view))))
       (ns:queue-for-event-loop (lambda () (av:start-capture capture)))
       (list capture
 	    :release-p t
 	    :texture-cache texture-cache
-	    :target :texture-rectangle))))
+	    :target :texture-rectangle
+	    :info (tex :info)))))
 
 
 (defmethod init-texture-device (view (device av:capture) texture-device)
@@ -248,12 +255,14 @@
     (list device
 	  :release-p nil
 	  :texture-cache texture-cache
-	  :target :texture-rectangle)))
+	  :target :texture-rectangle
+	  :info (tex :info))))
 
 (defmethod update-texture-device (view (device av:capture) texture-device)
   (declare (ignorable view))
   (av:with-texture-cache (device (tex :texture-cache) width height)
-    width height))
+    (when (tex :info)
+      (uiop:println (list :capture-frame-size width height)))))
 
 (defmethod release-texture-device (view (device av:capture) texture-device)
   (declare (ignorable view))
