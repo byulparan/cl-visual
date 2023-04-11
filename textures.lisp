@@ -172,7 +172,8 @@
 		(/= (gfx:width object) (width view))
 		(/= (gfx:height object) (height view))))
       (cg:release-context (gfx:context object))
-      (setf (gfx:context object) (cg:make-bitmap-context (width view) (height view))))
+      (setf (gfx:context object) (cg:make-bitmap-context (width view) (height view)))
+      (gfx:reshape object))
     (gfx:draw object)
     (gl:bind-texture (tex :target) (tex :tex-id))
     (gl:tex-image-2d (tex :target) 0 :rgba8 (gfx:width object) (gfx:height object) 0 :rgba :unsigned-byte

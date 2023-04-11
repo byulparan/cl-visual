@@ -10,6 +10,7 @@
 
 (defmethod init ((view gl-canvas)))
 (defmethod draw ((view gl-canvas)))
+(defmethod reshape ((view gl-canvas)))
 (defmethod release ((view gl-canvas)))
 
 (defmethod release :after ((view gl-canvas))
@@ -24,6 +25,7 @@
 
 (defmethod init ((view bitmap-context)))
 (defmethod draw ((view bitmap-context)))
+(defmethod reshape ((view bitmap-context)))
 (defmethod release ((view bitmap-context)))
 
 (defmethod width ((view bitmap-context))
@@ -34,5 +36,5 @@
 
 
 
-(export '(gl-canvas bitmap-context context init draw release projection-matrix modelview-matrix)
+(export '(gl-canvas bitmap-context context init draw reshape release projection-matrix modelview-matrix)
 	:gfx)
