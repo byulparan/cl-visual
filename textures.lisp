@@ -445,7 +445,8 @@
 	 (height (height view))
 	 (renderer (tex :renderer))
 	 (canvas (tex :gl-canvas))
-	 (output (tex :output)))
+	 (output (tex :output))
+	 (resize nil))
     (when (and (not (tex :fixed-size))
 	       (or (/= width (width renderer))
 		   (/= height (height renderer))))
@@ -457,13 +458,16 @@
       (cgl:tex-image-io-surface-2d (cgl-context view) (tex :target)
 				   :rgba width height :bgra
 				   :unsigned-int-8-8-8-8-rev (iosurface renderer) 0)
-      (gl:bind-texture (tex :target) 0))
+      (gl:bind-texture (tex :target) 0)
+      (setf resize t))
     (gl:bind-texture (tex :target) (tex :tex-id))
     (with-cgl-context ((cgl-context renderer))
       (let* ((fbo (if (tex :multisample) (fbo renderer) (gfx::output-fbo (fbo renderer)))))
 	(gfx:with-fbo (fbo)
 	  (setf (gfx:projection-matrix canvas) (kit.math:perspective-matrix 45.0 (/ width height) .1 10000.0)
 		(gfx:modelview-matrix canvas) (gfx:eval-camera (gfx:camera canvas)))
+	  (when resize
+	    (gfx:reshape canvas))
 	  (gfx:draw canvas)))
       (gl:flush))))
 
@@ -489,7 +493,8 @@
    (shader :initarg :shader :reader shader)
    (texture-devices :initarg :texture-devices :accessor texture-devices)
    (gl-canvas :initarg :gl-canvas :accessor gl-canvas)
-   (fn :initarg :fn :reader fn)))
+   (user-fn :initarg :user-fn :reader user-fn)
+   (resize-p :initform nil :accessor resize-p)))
 
 (defmethod gfx:init ((view shader-surface))
   (let* ((devices (texture-devices view)))
@@ -524,8 +529,8 @@
     (gl:viewport 0 0 w h)
     (gl:clear-color .0 .0 .0 1.0)
     (gl:clear :color-buffer-bit :depth-buffer-bit)
-    (when (fn view)
-      (funcall (fn view) view))
+    (when (user-fn view)
+      (funcall (user-fn view)))
     (setf (gfx:projection-matrix view) (kit.math:perspective-matrix 45.0 (/ w h) .1 10000.0)
 	  (gfx:modelview-matrix view) (gfx:eval-camera (gfx:camera view)))
     (loop for unit in '(:texture0 :texture1 :texture2 :texture3
@@ -560,6 +565,9 @@
       (setf (gfx:width (gl-canvas view)) w (gfx:height (gl-canvas view)) h)
       (setf (gfx:projection-matrix (gl-canvas view)) (gfx:projection-matrix view)
 	    (gfx:modelview-matrix (gl-canvas view)) (gfx:modelview-matrix view))
+      (when (resize-p view)
+	(gfx:reshape (gl-canvas view))
+	(setf (resize-p view) nil))
       (gfx:draw (gl-canvas view)))))
 
 (defmethod gfx:release ((view shader-surface))
@@ -599,7 +607,7 @@
 				 :shader (tex :src)
 				 :texture-devices (tex :textures)
 				 :gl-canvas (tex :gl-canvas)
-				 :fn (tex :fn)))
+				 :user-fn (tex :user-fn)))
 	 (output (tex :output)))
     (resize-framebuffer renderer width height)
     (when output
@@ -641,7 +649,8 @@
       (cgl:tex-image-io-surface-2d (cgl-context view) (tex :target)
 				   :rgba width height :bgra
 				   :unsigned-int-8-8-8-8-rev (iosurface renderer) 0)
-      (gl:bind-texture (tex :target) 0))
+      (gl:bind-texture (tex :target) 0)
+      (setf (resize-p surface) t))
     (gl:bind-texture (tex :target) (tex :tex-id))
     (with-cgl-context ((cgl-context renderer))
       (let* ((fbo (if (tex :multisample) (fbo renderer)

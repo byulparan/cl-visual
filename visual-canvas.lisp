@@ -227,7 +227,7 @@
     (funcall user-fn))
   (let* ((ctx (cgl:get-current-context)))
     (let* ((size-update-p (update-visual-canvas view)))
-      (render (renderer view))
+      (render (renderer view) size-update-p)
       (let* ((w (width (renderer view)))
   	     (h (height (renderer view)))
   	     (view-w (car (view-size view)))

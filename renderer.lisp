@@ -193,7 +193,7 @@
 						:width (width renderer) :height (height renderer)))
       (gfx:init (gl-canvas renderer)))))
 
-(defun draw-shader (renderer w h)
+(defun draw-shader (renderer w h update-size)
   (let* ((time (render-time renderer)))
     (gl:enable :depth-test)
     (apply (shader renderer) renderer `(:triangles 0 6 ,(gpu-stream renderer)
@@ -222,9 +222,11 @@
     (setf (gfx:width canvas) w (gfx:height canvas) h)
     (setf (gfx:projection-matrix canvas) (projection-matrix renderer)
 	  (gfx:modelview-matrix canvas) (modelview-matrix renderer))
+    (when update-size
+      (gfx:reshape canvas))
     (gfx:draw canvas)))
 
-(defun render (renderer)
+(defun render (renderer update-size)
   (with-cgl-context ((cgl-context renderer))
     (let* ((w (width renderer))
 	   (h (height renderer))
@@ -242,7 +244,7 @@
 	      for device in (texture-devices renderer)
 	      do (gl:active-texture unit)
 		 (update-texture-device renderer (car device) (cdr device)))
-	(draw-shader renderer w h))
+	(draw-shader renderer w h update-size))
       (gfx:with-fbo ((gfx::output-fbo (fbo renderer)))
 	(loop for unit in '(:texture0 :texture1 :texture2 :texture3
 			    :texture4 :texture5 :texture6 :texture7)
