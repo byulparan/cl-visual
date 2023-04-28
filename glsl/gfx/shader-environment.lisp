@@ -52,14 +52,14 @@
       (cffi:with-pointer-to-vector-data (pointer gpu-array)
 	(%gl:buffer-data :array-buffer (* (cffi:foreign-type-size :float) (length gpu-array))
 			 pointer :static-draw)))
+    (gl:bind-buffer :array-buffer 0)
     (when (fourth (getf (buffers environment) gpu-stream))
       (gl:bind-buffer :element-array-buffer (fourth (getf (buffers environment) gpu-stream)))
-      (gl:with-gl-array (array :unsigned-int :count (length (%gpu-stream-index-array gpu-stream)))
-	(let ((vert (%gpu-stream-index-array gpu-stream)))
-	  (loop for v in vert
-		for i from 0
-		do (setf (gl:glaref array i) v)))
-	(gl:buffer-data :element-array-buffer :static-draw array)))
+      (let ((index-array (%gpu-stream-index-array gpu-stream)))
+	(cffi:with-pointer-to-vector-data (pointer index-array)
+	  (%gl:buffer-data :element-array-buffer (* (cffi:foreign-type-size :unsigned-int) (length index-array))
+			   pointer :static-draw)))
+      (gl:bind-buffer :element-array-buffer 0))
     (setf (car (getf (buffers environment) gpu-stream)) (%gpu-stream-update-time gpu-stream))))
 
 

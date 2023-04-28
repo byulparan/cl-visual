@@ -41,14 +41,10 @@
 						      type)
 				       :core-profile core-profile
 				       :update-time (get-internal-real-time))))
-    (when index-data
-      (setf (%gpu-stream-index-array gpu-stream) index-data))
-    (gpu-stream-set gpu-stream data)
+    (gpu-stream-set gpu-stream data :index-data index-data)
     gpu-stream))
 
 (defun gpu-stream-set (gpu-stream data &key index-data)
-  (when (and index-data (not (%gpu-stream-index-array gpu-stream)))
-    (error "GPU-Stream can't into index-data"))
   (let* ((sizes (mapcar #'type-size (%gpu-stream-types gpu-stream)))
 	 (size (apply #'+ sizes)))
     (etypecase data
@@ -64,9 +60,16 @@
 							       :element-type 'single-float
 							       #+lispworks :allocation
 							       #+lispworks :static)
-		    (%gpu-stream-length gpu-stream) data))))
-  (when index-data 
-    (setf (%gpu-stream-index-array gpu-stream) index-data))
+		    (%gpu-stream-length gpu-stream) data))
+      ((simple-array single-float (*)) (setf (%gpu-stream-array gpu-stream) data
+					     (%gpu-stream-length gpu-stream) (/ (length data) size))))
+    (when index-data
+      (etypecase index-data
+	(list (let* ((index-array (alexandria:flatten index-data)))
+		(setf (%gpu-stream-index-array gpu-stream)
+		  (make-array (length index-array) :element-type '(unsigned-byte 32)
+			      :initial-contents index-array))))
+	((simple-array (unsigned-byte 32) (*)) (setf (%gpu-stream-index-array gpu-stream) index-data)))))
   (setf (%gpu-stream-update-time gpu-stream) (get-internal-real-time)))
 
 (defun gpu-stream-do-each (gpu-stream function)
