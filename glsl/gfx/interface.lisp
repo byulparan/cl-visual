@@ -21,7 +21,7 @@
   (format stream "#S(%GPU-STREAM :TYPE ~a :CORE-PROFILE ~a :LENGTH ~d)"
 	  (%gpu-stream-types entry)
 	  (%gpu-stream-core-profile entry)
-	  (%gpu-stream-length entry)))
+	  (gpu-stream-length entry)))
 
 
 ;;; pipeline

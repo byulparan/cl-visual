@@ -62,14 +62,19 @@
 							       #+lispworks :static)
 		    (%gpu-stream-length gpu-stream) data))
       ((simple-array single-float (*)) (setf (%gpu-stream-array gpu-stream) data
-					     (%gpu-stream-length gpu-stream) (/ (length data) size))))
+					     (%gpu-stream-length gpu-stream) (/ (length data) size)))
+      ((simple-array (unsigned-byte 8) (*)) (setf (%gpu-stream-array gpu-stream) data
+						  (%gpu-stream-length gpu-stream) (/ (length data) size 4)))
+      (gl:gl-array (setf (%gpu-stream-array gpu-stream) data
+			 (%gpu-stream-length gpu-stream) (/ (gl:gl-array-byte-size data) size 4))))
     (when index-data
       (etypecase index-data
 	(list (let* ((index-array (alexandria:flatten index-data)))
 		(setf (%gpu-stream-index-array gpu-stream)
 		  (make-array (length index-array) :element-type '(unsigned-byte 32)
 			      :initial-contents index-array))))
-	((simple-array (unsigned-byte 32) (*)) (setf (%gpu-stream-index-array gpu-stream) index-data)))))
+	((simple-array (unsigned-byte 32) (*)) (setf (%gpu-stream-index-array gpu-stream) index-data))
+	((simple-array (unsigned-byte 8) (*)) (setf (%gpu-stream-index-array gpu-stream) index-data)))))
   (setf (%gpu-stream-update-time gpu-stream) (get-internal-real-time)))
 
 (defun gpu-stream-do-each (gpu-stream function)
