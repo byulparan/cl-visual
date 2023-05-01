@@ -539,27 +539,30 @@
 	  do (gl:active-texture unit)
 	     (update-texture-device view (car device) (cdr device)))
     (gl:enable :depth-test)
-    (apply (shader view) view `(:triangles 0 6 ,(gpu-stream (renderer *visual-canvas*))
-				:ichannel0 0 :ichannel1 1 :ichannel2 2 :ichannel3 3
-				:ichannel4 4 :ichannel5 5 :ichannel6 6 :ichannel7 7
-				:iglobal-time ,time :itime ,time
-				,@(loop for i from 0 below *num-ivolume*
-					append `(,(intern (format nil "IVOLUME~d" i) :keyword)
-						 ,(funcall *visual-volume-function* i)))
-				,@(loop for i from 0 below *num-icontrol*
-					append
-					`(,(intern (format nil "ICONTROL~d" i) :keyword)
-					  ,(funcall *visual-control-function* i)))
-				:iresolution ,(list w h)
-				:camera ,(list (gfx::eye-x (gfx:camera view))
-					       (gfx::eye-y (gfx:camera view))
-					       (gfx::eye-z (gfx:camera view)))
-				:lookat ,(list (gfx::center-x (gfx:camera view))
-					       (gfx::center-y (gfx:camera view))
-					       (gfx::center-z (gfx:camera view)))
-				:projection-matrix ,(gfx:projection-matrix view)
-				:modelview-matrix ,(gfx:modelview-matrix view)
-				:imouse ,(imouse (renderer *visual-canvas*))))
+    (gfx:with-shader (view (shader view) (gpu-stream (renderer *visual-canvas*)) program)
+      (loop for i from 0 below 8
+	    do (gl:uniformi (gl:get-uniform-location program (format nil "ichannel~d" i)) i))
+      (loop for i from 0 below *num-ivolume*
+	    do (gl:uniformf (gl:get-uniform-location program (format nil "ivolume~d" i))
+			    (funcall *visual-volume-function* i)))
+      (loop for i from 0 below *num-icontrol*
+	    do (gl:uniformf (gl:get-uniform-location program (format nil "icontrol~d" i))
+			    (funcall *visual-control-function* i)))
+      (gl:uniformf (gl:get-uniform-location program "iglobal_time") time)
+      (gl:uniformf (gl:get-uniform-location program "itime") time)
+      (gl:uniformf (gl:get-uniform-location program "iresolution") w h)
+      (gl:uniformf (gl:get-uniform-location program "camera")
+		   (gfx::eye-x (gfx:camera view))
+		   (gfx::eye-y (gfx:camera view))
+		   (gfx::eye-z (gfx:camera view)))
+      (gl:uniformf (gl:get-uniform-location program "lookat")
+		   (gfx::center-x (gfx:camera view))
+		   (gfx::center-y (gfx:camera view))
+		   (gfx::center-z (gfx:camera view)))
+      (gl:uniform-matrix-4fv (gl:get-uniform-location program "projection_matrix") (gfx:projection-matrix view))
+      (gl:uniform-matrix-4fv (gl:get-uniform-location program "modelview_matrix") (gfx:modelview-matrix view))
+      (apply #'gl:uniformf (gl:get-uniform-location program "imouse") (imouse (renderer *visual-canvas*)))
+      (gl:draw-arrays :triangles 0 6))
     (gl:disable :depth-test)
     (when (gl-canvas view)
       (setf (gfx:width (gl-canvas view)) w (gfx:height (gl-canvas view)) h)
