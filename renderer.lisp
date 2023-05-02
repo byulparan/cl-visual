@@ -128,10 +128,11 @@
 ;;; for volume / control
 ;;;
 
-(defvar *num-ivolume* 6)
-(defvar *num-icontrol* 10)
-(defvar *visual-volume-function* (lambda (n) (declare (ignore n)) 0.0))
-(defvar *visual-control-function* (lambda (n) (declare (ignore n)) 0.0))
+(eval-when (:compile-toplevel :load-toplevel :execute)
+  (defvar *num-ivolume* 6)
+  (defvar *num-icontrol* 10)
+  (defvar *visual-volume-function* (lambda (n) (declare (ignore n)) 0.0))
+  (defvar *visual-control-function* (lambda (n) (declare (ignore n)) 0.0)))
 
 
 ;;; ===========================================================================
@@ -197,28 +198,28 @@
   (let* ((time (render-time renderer)))
     (gl:enable :depth-test)
     (gfx:with-shader (renderer (shader renderer) (gpu-stream renderer) program)
-      (loop for i from 0 below 8
-	    do (gl:uniformi (gl:get-uniform-location program (format nil "ichannel~d" i)) i))
-      (loop for i from 0 below *num-ivolume*
-	    do (gl:uniformf (gl:get-uniform-location program (format nil "ivolume~d" i))
-			    (funcall *visual-volume-function* i)))
-      (loop for i from 0 below *num-icontrol*
-	    do (gl:uniformf (gl:get-uniform-location program (format nil "icontrol~d" i))
-			    (funcall *visual-control-function* i)))
-      (gl:uniformf (gl:get-uniform-location program "iglobal_time") time)
-      (gl:uniformf (gl:get-uniform-location program "itime") time)
-      (gl:uniformf (gl:get-uniform-location program "iresolution") w h)
-      (gl:uniformf (gl:get-uniform-location program "camera")
-		   (gfx::eye-x (camera renderer))
-		   (gfx::eye-y (camera renderer))
-		   (gfx::eye-z (camera renderer)))
-      (gl:uniformf (gl:get-uniform-location program "lookat")
-		   (gfx::center-x (camera renderer))
-		   (gfx::center-y (camera renderer))
-		   (gfx::center-z (camera renderer)))
-      (gl:uniform-matrix-4fv (gl:get-uniform-location program "projection_matrix") (projection-matrix renderer))
-      (gl:uniform-matrix-4fv (gl:get-uniform-location program "modelview_matrix") (modelview-matrix renderer))
-      (apply #'gl:uniformf (gl:get-uniform-location program "imouse") (imouse renderer))
+      #.`(progn ,@(loop for i from 0 below 8
+		      collect `(gfx:set-uniform ',(intern (format nil "ICHANNEL~d" i)) ,i))
+		,@(loop for i from 0 below *num-ivolume*
+			collect `(gfx:set-uniform ',(intern (format nil "IVOLUME~d" i))
+						  (funcall *visual-volume-function* ,i)))
+		,@(loop for i from 0 below *num-icontrol*
+			collect `(gfx:set-uniform ',(intern (format nil "ICONTROL~d" i))
+						  (funcall *visual-control-function* ,i))))
+      (gfx:set-uniform 'iglobal-time time)
+      (gfx:set-uniform 'itime time)
+      (gfx:set-uniform 'iresolution (list w h))
+      (gfx:set-uniform 'camera (list
+				(gfx::eye-x (camera renderer))
+				(gfx::eye-y (camera renderer))
+				(gfx::eye-z (camera renderer))))
+      (gfx:set-uniform 'lookat (list
+				(gfx::center-x (camera renderer))
+				(gfx::center-y (camera renderer))
+				(gfx::center-z (camera renderer))))
+      (gfx:set-uniform 'projection-matrix (projection-matrix renderer))
+      (gfx:set-uniform 'modelview-matrix (modelview-matrix renderer))
+      (gfx:set-uniform 'imouse (imouse renderer))
       (gl:draw-arrays :triangles 0 6))
     (gl:disable :depth-test))
   (when-let ((canvas (gl-canvas renderer)))
