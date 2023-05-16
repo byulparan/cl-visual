@@ -52,7 +52,7 @@
 
 
 (defmethod initialize-instance :after ((instance renderer) &key)
-  (let* ((%pixel-format (cgl:make-pixel-format (cgl:make-attributes :core-profile (core-profile instance))))
+  (let* ((%pixel-format (cgl:make-pixel-format (cgl:list-attributes :core-profile (core-profile instance))))
   	 (%cgl-context (cgl:make-context %pixel-format)))
     (with-slots (cgl-context pixel-format) instance
       (setf cgl-context %cgl-context

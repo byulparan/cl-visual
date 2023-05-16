@@ -236,7 +236,7 @@
   (let* ((rect (tex :src))
 	 (fps (tex :fps))
 	 (size (tex :size)))
-    (let* ((capture (av:make-screen-capture :crop-rect (when rect (apply #'ns:make-rect rect))
+    (let* ((capture (av:make-screen-capture :crop-rect (when rect (apply #'ns:rect rect))
 					    :min-frame-duration (if fps fps 60)
 					    :request-size size))
 	   (texture-cache (core-video:make-texture-cache (cgl-context view)
@@ -750,8 +750,8 @@
 	  (update-texture-device surface (car src) (cdr src))
 	  (let* ((texture (getf (cdr src) :tex-id))
 		 (fixed-size (getf (cdr src) :fixed-size))
-		 (ci-image (ci:make-image-from-texture texture (apply #'ns:make-size (if fixed-size fixed-size (list width height)))))
-		 (rect (ns:make-rect 0 0 width height)))
+		 (ci-image (ci:image-from-texture texture (apply #'ns:size (if fixed-size fixed-size (list width height)))))
+		 (rect (ns:rect 0 0 width height)))
 	    (dolist (filter (tex :output-filter))
 	      (setf ci-image (ci:apply-filter filter ci-image)))
 	    (gl:viewport 0 0 width height)
@@ -761,7 +761,7 @@
 	    (gl:matrix-mode :modelview)
 	    (gl:load-identity)
 	    (ci:draw-image (tex :ci-context) ci-image rect 
-			   (if fixed-size (ns:make-rect 0 0 (first fixed-size) (second fixed-size)) rect))
+			   (if fixed-size (ns:rect 0 0 (first fixed-size) (second fixed-size)) rect))
 	    (gl:flush)))))))
 
 

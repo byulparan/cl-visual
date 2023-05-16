@@ -146,8 +146,8 @@
 
 (defun convert-size-to-backing (visual-canvas)
   (let* ((best-size (ns:objc visual-canvas "convertSizeToBacking:"
-			     (:struct ns:size) (ns:make-size (ns:width visual-canvas)
-							     (ns:height visual-canvas))
+			     (:struct ns:size) (ns:size (ns:width visual-canvas)
+							(ns:height visual-canvas))
 			     (:struct ns:size))))
     (list (ns:size-width best-size) (ns:size-height best-size))))
 
@@ -180,7 +180,7 @@
 	      (setf scene-size (get-scene-size scene-ratio best-size))
 	      (setf (view-size canvas) best-size)
 	      (setf (width renderer) (car scene-size)
-		      (height renderer) (second scene-size))
+		    (height renderer) (second scene-size))
 	      (resize-framebuffer renderer (width renderer) (height renderer)))
 	  (let* ((scene-ratio (getf options :scene-ratio))
 		 (syphon (getf options :syphon)))
@@ -204,11 +204,11 @@
 	    (setf (info canvas) (getf options :info)
 		  (user-fn canvas) (getf options :user-fn)
 		  (output-filter canvas) (getf options :output-filter)))))
-      	scene-size)))
+      scene-size)))
 
 (defun apply-filter (canvas width height)
-  (let* ((ciimage (ci:make-image-from-texture (texture canvas) (ns:make-size width height)))
-	 (rect (ns:make-rect 0 0 width height)))
+  (let* ((ciimage (ci:image-from-texture (texture canvas) (ns:size width height)))
+	 (rect (ns:rect 0 0 width height)))
     (loop for filter in (output-filter canvas)
 	  do (setf ciimage (ci:apply-filter filter ciimage)))
     (gl:bind-framebuffer :framebuffer (framebuffer canvas))
@@ -248,8 +248,8 @@
   	(when (syphon view)
   	  (syphon:publish-frame (syphon view) (texture view)  
   	  			(cffi:foreign-enum-value '%gl:enum :texture-rectangle)
-				(ns:make-rect 0 0 w h)
-				(ns:make-size w h)))
+				(ns:rect 0 0 w h)
+				(ns:size w h)))
 	(let* ((now (gfx:get-internal-seconds)))
   	  (calc-fps-info (fps-info view) (- now (last-draw-time view)))
 	  (setf (last-draw-time view) now))
@@ -278,34 +278,34 @@
 
 (defmacro gfx::define-shader (name &body body)
   `(progn
-       (gfx:defpipeline (,name :version 330)
-	   (,@(loop with pipeline = (gethash name gfx::*all-pipeline-table*)
-		    for i from 0 below 8
-		    for uniform in (if pipeline (gfx::%pipeline-uniforms pipeline)
-				     (make-list 8))
-		    collect (list (intern (format nil "ICHANNEL~d" i))
-				  (if pipeline (second uniform)
-				      :sampler-2d)))
-	    (iglobal-time :float)
-	    (itime :float)
-	    ,@(loop for i from 0 below *num-ivolume*
-		    collect (list (intern (format nil "IVOLUME~d" i)) :float))
-	    ,@(loop for i from 0 below *num-icontrol*
-		    collect (list (intern (format nil "ICONTROL~d" i)) :float))
-	    (iresolution :vec2)
-	    (camera :vec3)
-	    (lookat :vec3)
-	    (projection-matrix :mat4)
-	    (modelview-matrix :mat4)
-	    (imouse :vec3))
-	 (:vertex (:in ((pos :vec2))
-		   :out ((vfuv :vec2)))
-		  (progn
-		    (setq vfuv pos)
-		    (v! pos 0.0 1.0)))
-	 (:fragment (:in ((vfuv :vec2)))
-		    (progn ,@body)))
-       ',name))
+     (gfx:defpipeline (,name :version 330)
+	 (,@(loop with pipeline = (gethash name gfx::*all-pipeline-table*)
+		  for i from 0 below 8
+		  for uniform in (if pipeline (gfx::%pipeline-uniforms pipeline)
+				   (make-list 8))
+		  collect (list (intern (format nil "ICHANNEL~d" i))
+				(if pipeline (second uniform)
+				  :sampler-2d)))
+	  (iglobal-time :float)
+	  (itime :float)
+	  ,@(loop for i from 0 below *num-ivolume*
+		  collect (list (intern (format nil "IVOLUME~d" i)) :float))
+	  ,@(loop for i from 0 below *num-icontrol*
+		  collect (list (intern (format nil "ICONTROL~d" i)) :float))
+	  (iresolution :vec2)
+	  (camera :vec3)
+	  (lookat :vec3)
+	  (projection-matrix :mat4)
+	  (modelview-matrix :mat4)
+	  (imouse :vec3))
+       (:vertex (:in ((pos :vec2))
+		 :out ((vfuv :vec2)))
+		(progn
+		  (setq vfuv pos)
+		  (v! pos 0.0 1.0)))
+       (:fragment (:in ((vfuv :vec2)))
+		  (progn ,@body)))
+     ',name))
 
 
 (defmacro gfx::start-shader (shader &key textures (reinit-time (let ((cur-time (gfx:get-internal-seconds)))
@@ -332,38 +332,38 @@
 					     (frame #+x86-64 (ns:objc-stret ns:rect window "frame")
 						    #+arm64 (ns:objc window "frame" (:struct ns:rect))))
 					(ns:objc (window *visual-canvas*) "setFrame:display:"
-						 (:struct ns:rect) (ns:make-rect (ns:rect-x frame)
-										 (+ (ns:rect-y frame)
-										    (- (ns:rect-height frame)
-										       (+ 28 ,(third size))))
-										 ,(second size)
-										 (+ 28 ,(third size)))
-						   :int 0)))))
-	   (ns:with-event-loop (:waitp t)
-	     (let* ((renderer (make-instance 'visual-renderer :reinit-time ,reinit-time
-	 				     :core-profile t))
-	 	    (canvas (make-instance 'visual-canvas :x 0 :y 0 :w ,(if size (second size) 720) :h ,(if size (third size) 450)
-					   :use-mouse ,use-mouse
-	 				   :scene-ratio ,scene-ratio
-	 				   :renderer renderer
-	 				   :retina ,retina
-					   :animate t
-	 				   :core-profile nil))
-	 	    (window (make-instance 'ns:window
-			      :rect (ns:in-screen-rect (ns:make-rect 0 1000 ,(if size (second size) 720) ,(if size (third size) 450)))
-			      :title ,window-name)))
-	       (ns:objc canvas "setWantsBestResolutionOpenGLSurface:" :bool (retina canvas))
-	       (setf (ns:content-view window) canvas)
-	       (setf (window canvas) window)
-	       (#+sbcl send-message
-		#-sbcl mailbox-send-message 
-		(mailbox canvas) :force-resize)
-	       (#+sbcl send-message
-		#-sbcl mailbox-send-message
-		(mailbox canvas)
-		,message)
-	       (setf *visual-canvas* canvas)
-	       (ns:window-show window)))))))
+						 (:struct ns:rect) (ns:rect (ns:rect-x frame)
+									    (+ (ns:rect-y frame)
+									       (- (ns:rect-height frame)
+										  (+ 28 ,(third size))))
+									    ,(second size)
+									    (+ 28 ,(third size)))
+						 :int 0)))))
+	 (ns:with-event-loop (:waitp t)
+	   (let* ((renderer (make-instance 'visual-renderer :reinit-time ,reinit-time
+	 				   :core-profile t))
+	 	  (canvas (make-instance 'visual-canvas :x 0 :y 0 :w ,(if size (second size) 720) :h ,(if size (third size) 450)
+					 :use-mouse ,use-mouse
+	 				 :scene-ratio ,scene-ratio
+	 				 :renderer renderer
+	 				 :retina ,retina
+					 :animate t
+	 				 :core-profile nil))
+	 	  (window (make-instance 'ns:window
+			    :rect (ns:in-screen-rect (ns:rect 0 1000 ,(if size (second size) 720) ,(if size (third size) 450)))
+			    :title ,window-name)))
+	     (ns:objc canvas "setWantsBestResolutionOpenGLSurface:" :bool (retina canvas))
+	     (setf (ns:content-view window) canvas)
+	     (setf (window canvas) window)
+	     (#+sbcl send-message
+	      #-sbcl mailbox-send-message 
+	      (mailbox canvas) :force-resize)
+	     (#+sbcl send-message
+	      #-sbcl mailbox-send-message
+	      (mailbox canvas)
+	      ,message)
+	     (setf *visual-canvas* canvas)
+	     (ns:window-show window)))))))
 
 
 (defmethod ns:mouse-wheel ((view visual-canvas) event location-x location-y)
@@ -396,7 +396,7 @@
 
 
 (defun gfx::reset-visual-camera (&key (eye-x 0.0) (eye-y 0.0) (eye-z 5.0)
-				      (center-x 0.0) (center-y 0.0) (center-z 0.0))
+				   (center-x 0.0) (center-y 0.0) (center-z 0.0))
   (when *visual-canvas*
     (gfx:reset-camera (camera (renderer *visual-canvas*))
 		      :eye-x eye-x :eye-y eye-y :eye-z eye-z
