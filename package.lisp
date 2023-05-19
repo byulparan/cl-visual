@@ -50,7 +50,9 @@
 	   #:projection-matrix
 	   #:modelview-matrix
 	   #:imouse
-	   #:vfuv))
+	   #:vfuv
+
+	   #:*visual-canvas*))
 
 (defpackage :ftgl
   (:use #:cl)
