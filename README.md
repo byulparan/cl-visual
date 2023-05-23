@@ -11,6 +11,7 @@ Write many friendly documentaions...
 ## Dependencies
 - Quicklisp
 - cl-nextsetep(https://github.com/byulparan/cl-nextstep)
+- cl-glsl(https://github.com/byulparan/cl-glsl)
 - syphon(http://syphon.v002.info) 
 - ftgl(`brew install ftgl`)
 
