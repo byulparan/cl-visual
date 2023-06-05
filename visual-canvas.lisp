@@ -26,30 +26,11 @@
     (values)))
 
 
-
-(gfx:defpipeline (draw-framebuffer :version 120) ((image :sampler-2d-rect)
-						  (image-resolution :float)
-						  (gfx::iresolution :vec2))
-  (:vertex (:in ((pos :vec2) (coord :vec2))
-	    :out ((v-coord :vec2)))
-	   (progn
-	     (setf v-coord coord)
-	     (v! pos .0 1.0)))
-  (:fragment (:in ((v-coord :vec2)))
-	     (texture image (* v-coord gfx::iresolution image-resolution))))
-
 (defclass visual-canvas (ns:opengl-view gfx:shader-environment)
   ((mailbox
     :initarg :mailbox
     :initform (make-mailbox)
     :reader mailbox)
-   (frame-stream :initform
-		 (gfx:make-gpu-stream '((pos :vec2) (coord :vec2))
-				      '(-1.0 -1.0  0.0 0.0 1.0 -1.0  1.0 0.0
-					-1.0  1.0  0.0 1.0 -1.0  1.0  0.0 1.0
-					1.0 -1.0  1.0 0.0 1.0  1.0  1.0 1.0)
-				      :core-profile nil)
-		 :reader frame-stream)
    (view-size
     :initform nil
     :accessor view-size)
@@ -237,14 +218,32 @@
   	(when (output-filter view)
   	  (apply-filter view w h))
   	(gl:viewport 0 0 view-w view-h)
+	(gl:matrix-mode :projection)
+	(gl:load-identity)
+	(gl:ortho 0 view-w 0 view-h -10 10)
+	(gl:matrix-mode :modelview)
+	(gl:load-identity)
   	(gl:clear-color .0 .0 .0 1.0)
   	(gl:clear :color-buffer-bit)
+	(gl:active-texture :texture0)
   	(gl:bind-texture :texture-rectangle (texture view))
-  	(draw-framebuffer view :triangles 0 6 (frame-stream view)
-  	  		       :image 0
-  	  		       :image-resolution (scene-ratio view)
-  	  		       :iresolution (list view-w view-h))
+	(gl:enable :texture-rectangle)
+	(gl:begin :triangles)
+	(gl:tex-coord 0.0 0.0)
+	(gl:vertex 0.0 0.0)
+	(gl:tex-coord w 0.0)
+	(gl:vertex view-w 0.0)
+	(gl:tex-coord 0.0 h)
+	(gl:vertex 0.0 view-h)
+	(gl:tex-coord 0.0 h)
+	(gl:vertex 0.0 view-h)
+	(gl:tex-coord w 0.0)
+	(gl:vertex view-w 0.0)
+	(gl:tex-coord w h)
+	(gl:vertex view-w view-h)
+	(gl:end)
   	(gl:bind-texture :texture-rectangle 0)
+	(gl:disable :texture-rectangle)
   	(when (syphon view)
   	  (syphon:publish-frame (syphon view) (texture view)  
   	  			(cffi:foreign-enum-value '%gl:enum :texture-rectangle)
