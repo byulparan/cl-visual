@@ -8,7 +8,7 @@
 (defmethod init-texture-device (view (device (eql :previous-frame)) texture-device)
   (declare (ignorable view texture-device))
   (let ((texture (gl:gen-texture))
-	(target :texture-rectangle)
+	(target :texture-2d)
 	(filter (or (getf texture-device :filter) :linear))
 	(wrap :clamp-to-edge))
     (gl:bind-texture  target texture)
