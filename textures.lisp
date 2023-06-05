@@ -329,7 +329,9 @@
     (syphon:stop-client syphon)
     (ns:release syphon)))
 
+
 ;;; simple-array singloe-float
+
 (defmethod init-texture-device (view (device #+sbcl sb-kernel::simple-array-single-float
 					     #+ccl ccl::simple-short-float-vector
 					     #+ecl vector
@@ -337,17 +339,16 @@
 				texture-device)
   (declare (ignorable view texture-device))
   (let* ((texture (gl:gen-texture))
-	 (target :texture-rectangle)
-	 (filter (or (getf texture-device :filter) :nearest))
-	 (wrap :clamp-to-edge))
-    (gl:bind-texture  target texture)
-    (gl:tex-parameter target :texture-min-filter filter)
-    (gl:tex-parameter target :texture-mag-filter filter)
-    (gl:tex-parameter target :texture-wrap-s wrap)
-    (gl:tex-parameter target :texture-wrap-t wrap)
-    (gl:bind-texture  target 0)
-    (list device
-	  :tex-id texture :target target)))
+	 (tbo (gl:gen-buffer))
+	 (target :texture-buffer))
+    (gl:bind-buffer target tbo)
+    (%gl:buffer-data target (* 4 (length device)) (cffi:null-pointer) :static-draw)
+    (gl:bind-buffer target 0)
+    (gl:bind-texture target texture)
+    (%gl:tex-buffer target :r32f tbo)
+    (gl:bind-texture target 0)
+    (list device 
+	  :tex-id texture :target target :tbo tbo)))
 
 (defmethod update-texture-device (view (device #+sbcl sb-kernel::simple-array-single-float
 					        #+ccl ccl::simple-short-float-vector
@@ -355,9 +356,11 @@
 						#+ecl vector)
 				  texture-device)
   (declare (ignore view))
-  (gl:bind-texture (tex :target) (tex :tex-id))
+  (gl:bind-buffer (tex :target) (tex :tbo))
   (cffi:with-pointer-to-vector-data (ptr device)
-    (gl:tex-image-2d (tex :target) 0 :r32f (length device) 1 0 :red :float ptr)))
+    (%gl:buffer-sub-data (tex :target) 0 (* (length device) 4) ptr))
+  (gl:bind-buffer (tex :target) 0)
+  (gl:bind-texture (tex :target) (tex :tex-id)))
 
 (defmethod release-texture-device (view (device #+sbcl sb-kernel::simple-array-single-float
 						#+ccl ccl::simple-short-float-vector
@@ -365,6 +368,7 @@
 						#+ecl vector)
 				   texture-device)
   (declare (ignore view device))
+  (gl:delete-buffers (list (tex :tbo)))
   (gl:delete-texture (tex :tex-id)))
 
 
