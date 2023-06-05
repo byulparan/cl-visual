@@ -137,6 +137,7 @@
 
 ;;; ===========================================================================
 
+
 (defun reinit-shader (renderer new-shader)
   (loop for (name shader-spec) on (gfx::shaders renderer) by #'cddr
 	do (unless (eql name new-shader)
@@ -181,18 +182,20 @@
 
 (defun reinit-visual-renderer (renderer options &optional scene-size)
   (with-cgl-context ((cgl-context renderer))
-    (setf (multisample renderer) (getf options :multisample))
-    (when scene-size
-      (resize-framebuffer renderer (car scene-size) (second scene-size)))
-    (reinit-shader renderer (getf options :shader))
-    (reinit-textures renderer options)
-    (when-let ((canvas (gl-canvas renderer)))
-      (gfx:release canvas))
-    (setf (gl-canvas renderer) nil)
-    (when-let ((canvas (getf options :gl-canvas)))
-      (setf (gl-canvas renderer) (make-instance canvas :camera (camera renderer)
-						:width (width renderer) :height (height renderer)))
-      (gfx:init (gl-canvas renderer)))))
+    (let* ((draw-fbo (if (multisample renderer) (fbo renderer)
+		       (gfx::output-fbo (fbo renderer)))))
+      (setf (multisample renderer) (getf options :multisample))
+      (when scene-size
+	(resize-framebuffer renderer (car scene-size) (second scene-size)))
+      (reinit-shader renderer (getf options :shader))
+      (reinit-textures renderer options)
+      (when-let ((canvas (gl-canvas renderer)))
+	(gfx:release canvas))
+      (setf (gl-canvas renderer) nil)
+      (when-let ((canvas (getf options :gl-canvas)))
+	(setf (gl-canvas renderer) (make-instance canvas :camera (camera renderer)
+						  :width (width renderer) :height (height renderer)))
+	(gfx:init (gl-canvas renderer))))))
 
 (defun draw-shader (renderer w h update-size)
   (let* ((time (render-time renderer)))
@@ -257,7 +260,7 @@
 	      do (gl:active-texture unit)
 		 (case (car device)
 		   (:previous-frame
-		    (gl:copy-tex-image-2d target 0 :rgba8 0 0 w h 0)))
+		    (gl:copy-tex-sub-image-2d target 0 0 0  0 0 w h)))
 		 (gl:bind-texture target 0)))) 
     (gl:flush)))
 

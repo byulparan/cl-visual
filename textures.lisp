@@ -17,11 +17,17 @@
     (gl:tex-parameter target :texture-wrap-s wrap)
     (gl:tex-parameter target :texture-wrap-t wrap)
     (gl:bind-texture  target 0)
-    (list device :tex-id texture :target target)))
+    (list device :tex-id texture :target target :width 0 :height 0)))
 
 (defmethod update-texture-device (view (device (eql :previous-frame)) texture-device)
   (declare (ignorable view device))
-  (gl:bind-texture (tex :target) (tex :tex-id)))
+  (gl:bind-texture (tex :target) (tex :tex-id))
+  (let* ((w (width view))
+	 (h (height view)))
+    (when (or (/= w (tex :width))
+	      (/= h (tex :height)))
+      (gl:copy-tex-image-2d (tex :target) 0 :rgba8 0 0 w h 0)
+      (setf (tex :width) w  (tex :height) h))))
 
 (defmethod release-texture-device (view (device (eql :previous-frame)) texture-device)
   (declare (ignorable view device))
@@ -152,6 +158,8 @@
 	 (object (make-instance (tex :src) :context context)))
     (gfx:init object)
     (gl:bind-texture target texture)
+    (gl:tex-image-2d target 0 :rgba8 (gfx:width object) (gfx:height object) 0 :rgba :unsigned-byte
+		     (cffi:null-pointer))
     (gl:tex-parameter target :texture-mag-filter filter)
     (gl:tex-parameter target :texture-min-filter filter)
     (gl:tex-parameter target :texture-wrap-s wrap)
@@ -166,6 +174,7 @@
 (defmethod update-texture-device (view (device (eql :bitmap-context)) texture-device)
   (declare (ignorable view device))
   (let* ((object (tex :object)))
+    (gl:bind-texture (tex :target) (tex :tex-id))
     (when (and (not (tex :fixed-size))
 	       (not (tex :fixed-context))
 	       (or 
@@ -173,11 +182,12 @@
 		(/= (gfx:height object) (height view))))
       (cg:release-context (gfx:context object))
       (setf (gfx:context object) (cg:make-bitmap-context (width view) (height view)))
-      (gfx:reshape object))
+      (gfx:reshape object)
+      (gl:tex-image-2d (tex :target) 0 :rgba8 (gfx:width object) (gfx:height object) 0 :rgba :unsigned-byte
+		       (cffi:null-pointer)))
     (gfx:draw object)
-    (gl:bind-texture (tex :target) (tex :tex-id))
-    (gl:tex-image-2d (tex :target) 0 :rgba8 (gfx:width object) (gfx:height object) 0 :rgba :unsigned-byte
-		     (cg:context-data (gfx:context object)))))
+    (gl:tex-sub-image-2d (tex :target) 0 0 0 (gfx:width object) (gfx:height object) :rgba :unsigned-byte
+			 (cg:context-data (gfx:context object)))))
 
 (defmethod release-texture-device (view (device (eql :bitmap-context)) texture-device)
   (declare (ignorable view device))
@@ -586,7 +596,6 @@
 (defmethod pixel-format ((view shader-surface))
   (pixel-format (renderer view)))
 
-
 (defmethod width ((view shader-surface))
   (gfx:width view))
 
@@ -668,7 +677,7 @@
 		do (gl:active-texture unit)
 		   (case (car device)
 		     (:previous-frame
-		      (gl:copy-tex-image-2d target 0 :rgba8 0 0 (gfx:width surface) (gfx:height surface) 0)))
+		      (gl:copy-tex-sub-image-2d target 0 0 0 0 0 (gfx:width surface) (gfx:height surface))))
 		   (gl:bind-texture target 0))))
       (gl:flush))))
 
