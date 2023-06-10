@@ -520,7 +520,8 @@
 				     (init-texture-device view (car device) (cdr device)))
 	      for target = (ecase (getf (cdr texture-device) :target)
 			     (:texture-2d :sampler-2d)
-			     (:texture-rectangle :sampler-2d-rect))
+			     (:texture-rectangle :sampler-2d-rect)
+			     (:texture-buffer :sampler-buffer))
 	      for uniform in (gfx::%pipeline-uniforms pipeline)
 	      when texture-device
 		do (unless (eql (second uniform) target)
