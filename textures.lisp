@@ -553,7 +553,7 @@
 	  do (gl:active-texture unit)
 	     (update-texture-device view (car device) (cdr device)))
     (gl:enable :depth-test)
-    (gfx:with-shader (view (shader view) (gpu-stream (renderer *visual-canvas*)) program)
+    (gfx:with-shader (view (shader view) (gpu-stream (renderer *visual-canvas*)))
       #.`(progn ,@(loop for i from 0 below 8
 			collect `(gfx:set-uniform ',(intern (format nil "ICHANNEL~d" i)) ,i))
 		,@(loop for i from 0 below *num-ivolume*

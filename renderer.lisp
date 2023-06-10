@@ -201,7 +201,7 @@
 (defun draw-shader (renderer w h update-size)
   (let* ((time (render-time renderer)))
     (gl:enable :depth-test)
-    (gfx:with-shader (renderer (shader renderer) (gpu-stream renderer) program)
+    (gfx:with-shader (renderer (shader renderer) (gpu-stream renderer))
       #.`(progn ,@(loop for i from 0 below 8
 		      collect `(gfx:set-uniform ',(intern (format nil "ICHANNEL~d" i)) ,i))
 		,@(loop for i from 0 below *num-ivolume*
