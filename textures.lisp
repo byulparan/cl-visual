@@ -26,7 +26,8 @@
 	 (h (height view)))
     (when (or (/= w (tex :width))
 	      (/= h (tex :height)))
-      (gl:copy-tex-image-2d (tex :target) 0 :rgba8 0 0 w h 0)
+      (gfx:with-fbo ((gfx::output-fbo (fbo view)))
+	(gl:copy-tex-image-2d (tex :target) 0 :rgba8 0 0 w h 0))
       (setf (tex :width) w  (tex :height) h))))
 
 (defmethod release-texture-device (view (device (eql :previous-frame)) texture-device)
@@ -606,6 +607,9 @@
 
 (defmethod height ((view shader-surface))
   (gfx:height view))
+
+(defmethod fbo ((view shader-surface))
+  (fbo (renderer view)))
 
 
 (defmethod init-texture-device (view (device (eql :shader)) texture-device)
