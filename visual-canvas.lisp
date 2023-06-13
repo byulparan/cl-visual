@@ -54,6 +54,9 @@
    (user-fn
     :initform nil
     :accessor user-fn)
+   (close-fn
+    :initform nil
+    :accessor close-fn)
    (output-filter
     :accessor output-filter)
    (audio-group
@@ -307,9 +310,11 @@
      ',name))
 
 
-(defmacro gfx::start-shader (shader &key textures (reinit-time (let ((cur-time (gfx:get-internal-seconds)))
-								 (lambda () (- (gfx:get-internal-seconds) cur-time))))
-				      size (scene-ratio 1) user-fn (use-mouse t) syphon output-filter retina
+(defmacro gfx::start-shader (shader &key textures
+				      (reinit-time (let ((cur-time (gfx:get-internal-seconds)))
+						     (lambda () (- (gfx:get-internal-seconds) cur-time))))
+				      size (scene-ratio 1) user-fn close-fn (use-mouse t)
+				      syphon output-filter retina
 				      (info t) gl-canvas multisample)
   (with-gensyms (window-name message)
     `(let* ((,window-name (format nil "~a" ',shader))
@@ -350,7 +355,9 @@
 	 				 :core-profile nil))
 	 	  (window (make-instance 'ns:window
 			    :rect (ns:in-screen-rect (ns:rect 0 1000 ,(if size (second size) 720) ,(if size (third size) 450)))
-			    :title ,window-name)))
+			    :title ,window-name
+			    :close-fn (lambda () (when (close-fn canvas)
+						   (funcall (close-fn canvas)))))))
 	     (ns:objc canvas "setWantsBestResolutionOpenGLSurface:" :bool (retina canvas))
 	     (setf (ns:content-view window) canvas)
 	     (setf (window canvas) window)
@@ -362,7 +369,8 @@
 	      (mailbox canvas)
 	      ,message)
 	     (setf *visual-canvas* canvas)
-	     (ns:window-show window)))))))
+	     (ns:window-show window))))
+       (setf (close-fn *visual-canvas*) ,close-fn))))
 
 
 (defmethod ns:mouse-wheel ((view visual-canvas) event location-x location-y)
