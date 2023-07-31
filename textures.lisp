@@ -331,7 +331,7 @@
     (ns:release syphon)))
 
 
-;;; simple-array singloe-float
+;;; simple-array single-float
 
 (defmethod init-texture-device (view (device #+sbcl sb-kernel::simple-array-single-float
 					     #+ccl ccl::simple-short-float-vector
