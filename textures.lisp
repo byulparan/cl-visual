@@ -252,6 +252,8 @@
 					    :request-size size))
 	   (texture-cache (core-video:make-texture-cache (cgl-context view)
 	   						 (pixel-format view))))
+      ;; 이유는 알 수 없지만 바로 av:start-capture 를 호출하면 특정 상황에서 OpenGL 에러가 발생한다.
+      ;; 그래서 ns:queue-for-event-loop 으로 다음 event-loop 에서 호출되도록 작성
       (ns:queue-for-event-loop (lambda () (av:start-capture capture)))
       (list capture
 	    :release-p t
