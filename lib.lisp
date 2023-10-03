@@ -1,7 +1,8 @@
 (defpackage :shader-lib
   (:shadowing-import-from #:gfx #:defpipeline :fill)
   (:nicknames :sl)
-  (:use #:cl :glsl :cl-visual :alexandria)
+  (:use #:cl :glsl :cl-visual)
+  
   (:export #:build-light))
 
 (in-package :shader-lib)
@@ -206,6 +207,49 @@
       (sin tt) (cos tt) 0.0
       0.0 0.0 1.0))
 
+
+(define-function-library rotate-2d ((r :float))
+  (m! (cos r) (sin r) (- (sin r)) (cos r)))
+
+(define-function-library rotate-3d ((angle :float) (axis :vec3))
+  (let* ((a (normalize axis))
+	 (s (sin angle))
+	 (c (cos angle))
+	 (r (- 1.0 c)))
+    (m! (+ (* (x a) (x a) r) c)
+	(+ (* (y a) (x a) r) (* (z a) s))
+	(- (* (z a) (x a) r) (* (y a) s))
+	(- (* (x a) (y a) r) (* (z a) s))
+	(+ (* (y a) (y a) r) c)
+	(+ (* (z a) (y a) r) (* (x a) s))
+	(+ (* (x a) (z a) r) (* (y a) s))
+	(- (* (y a) (z a) r) (* (x a) s))
+	(+ (* (z a) (z a) r) c))))
+
+
+(define-function-library translate ((vec :vec3))
+  (transpose
+   (m! 1.0 0.0 0.0 (x vec)
+       0.0 1.0 0.0 (y vec)
+       0.0 0.0 1.0 (z vec)
+       0.0 0.0 0.0 1.0)))
+
+(define-function-library rotate ((angle :float) (vec :vec3))
+  (let* ((rot (rotate-3d angle vec)))
+    (m! (aref rot 0) 0.0
+	(aref rot 1) 0.0
+	(aref rot 2) 0.0
+	(vec3 0.0) 1.0)))
+
+(define-function-library scale ((vec :vec3))
+  (m! (x vec) 0.0 0.0 0.0
+      0.0 (y vec) 0.0 0.0
+      0.0 0.0 (z vec) 0.0
+      0.0 0.0 0.0 1.0))
+
+
+
+
 (defmacro build-light (name sdf eps)
   `(gfx:defun-g ,name ((a :vec3) (d :vec3) (s :vec3) (alpha :float) (p :vec3) (c :vec3)
 		       (light-pos :vec3))
@@ -233,13 +277,6 @@
 	 (size (ecase (glsl::code-type target)
 		 (:sampler-2d 1.0)
 		 (:sampler-2d-rect `(texture-size ,texture)))))
-    (if flip
-	(once-only (uv)
-	  `(texture ,texture (* (v! (x ,uv) (- 1.0 (y ,uv))) ,size)))
-      `(texture ,texture (* ,uv ,size)))))
-
-(define-macro-library texture-rect (texture uv &optional flip)
-  (let* ((size `(texture-size ,texture)))
     (if flip
 	(once-only (uv)
 	  `(texture ,texture (* (v! (x ,uv) (- 1.0 (y ,uv))) ,size)))
@@ -529,25 +566,6 @@
   (let* ((t (v! 1.0 (/ 2.0 3.0) (/ 1.0 3.0) 3.0))
 	 (p (abs (- (* (fract (+ (vec3 h) (xyz t))) 6.0) (vec3 (w t))))))
     (* v (mix (vec3 (x t)) (clamp (- p (vec3 (x t))) 0.0 1.0) s))))
-
-(define-function-library rotate-2d ((r :float))
-  (m! (cos r) (sin r) (- (sin r)) (cos r)))
-
-
-(define-function-library rotate-3d ((angle :float) (axis :vec3))
-  (let* ((a (normalize axis))
-	 (s (sin angle))
-	 (c (cos angle))
-	 (r (- 1.0 c)))
-    (m! (+ (* (x a) (x a) r) c)
-	(+ (* (y a) (x a) r) (* (z a) s))
-	(- (* (z a) (x a) r) (* (y a) s))
-	(- (* (x a) (y a) r) (* (z a) s))
-	(+ (* (y a) (y a) r) c)
-	(+ (* (z a) (y a) r) (* (x a) s))
-	(+ (* (x a) (z a) r) (* (y a) s))
-	(- (* (y a) (z a) r) (* (x a) s))
-	(+ (* (z a) (z a) r) c))))
 
 
 
