@@ -278,7 +278,7 @@
 		 (:sampler-2d 1.0)
 		 (:sampler-2d-rect `(texture-size ,texture)))))
     (if flip
-	(once-only (uv)
+	(alexandria:once-only (uv)
 	  `(texture ,texture (* (v! (x ,uv) (- 1.0 (y ,uv))) ,size)))
       `(texture ,texture (* ,uv ,size)))))
 
