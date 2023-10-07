@@ -44,7 +44,7 @@
      (v! (y new-color) (z new-color) (w new-color) 1.0)))
 
 (define-macro-library with-camera ((rd-var uv ro ta &optional (cp '(v! 0.0 1.0 0.0)) (dist 2.0)) &body body)
-  (with-gensyms (cw cu cv var)
+  (alexandria:with-gensyms (cw cu cv var)
     `(let* ((,cw (normalize (- ,ta ,ro)))
 	    (,cu (normalize (cross ,cw ,cp)))
 	    (,cv (normalize (cross ,cu ,cw)))
