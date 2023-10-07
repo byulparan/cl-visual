@@ -48,7 +48,7 @@
 	   #:camera
 	   #:lookat
 	   #:projection-matrix
-	   #:modelview-matrix
+	   #:view-matrix
 	   #:imouse
 	   #:vfuv
 

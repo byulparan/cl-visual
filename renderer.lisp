@@ -83,8 +83,8 @@
     :reader camera)
    (projection-matrix
     :accessor projection-matrix)
-   (modelview-matrix
-    :accessor modelview-matrix)
+   (view-matrix
+    :accessor view-matrix)
    (reinit-time
     :initarg :reinit-time
     :accessor reinit-time)
@@ -222,14 +222,14 @@
 				(gfx::center-y (camera renderer))
 				(gfx::center-z (camera renderer))))
       (gfx:set-uniform 'projection-matrix (projection-matrix renderer))
-      (gfx:set-uniform 'modelview-matrix (modelview-matrix renderer))
+      (gfx:set-uniform 'view-matrix (view-matrix renderer))
       (gfx:set-uniform 'imouse (imouse renderer))
       (gl:draw-arrays :triangles 0 6))
     (gl:disable :depth-test))
   (when-let ((canvas (gl-canvas renderer)))
     (setf (gfx:width canvas) w (gfx:height canvas) h)
     (setf (gfx:projection-matrix canvas) (projection-matrix renderer)
-	  (gfx:modelview-matrix canvas) (modelview-matrix renderer))
+	  (gfx:view-matrix canvas) (view-matrix renderer))
     (when update-size
       (gfx:reshape canvas))
     (gfx:draw canvas)))
@@ -245,7 +245,7 @@
 	(gl:viewport 0 0 w h)
 	(gl:clear :color-buffer-bit :depth-buffer-bit)
  	(setf (projection-matrix renderer) (kit.math:perspective-matrix 45.0 (/ w h) .1 10000.0)
-	      (modelview-matrix renderer) (gfx:eval-camera (camera renderer))
+	      (view-matrix renderer) (gfx:eval-camera (camera renderer))
 	      (render-time renderer) (funcall (reinit-time renderer)))
 	(loop for unit in '(:texture0 :texture1 :texture2 :texture3
 			    :texture4 :texture5 :texture6 :texture7)

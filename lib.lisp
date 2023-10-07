@@ -61,7 +61,7 @@
 
 (define-macro-library with-hybrid ((ro rd depth) &body body)
   `(let* ((uv vfuv)
-	  (,ro (let* ((ro (- (xyz (aref modelview-matrix 3)))))
+	  (,ro (let* ((ro (- (xyz (aref view-matrix 3)))))
 		 (incf (x ro) (x (aref projection-matrix 2)))
 		 ro))
 	  (,rd (let* ((aspect (/ (x iresolution) (y iresolution)))
@@ -73,10 +73,10 @@
 	  (,depth 9999.0))
      (incf (x ,rd) (x (aref projection-matrix 2)))
      (setf ,rd (normalize ,rd))
-     (setf ,ro (* ,ro (mat3 modelview-matrix)))
-     (setf ,rd (* ,rd (mat3 modelview-matrix)))
+     (setf ,ro (* ,ro (mat3 view-matrix)))
+     (setf ,rd (* ,rd (mat3 view-matrix)))
      ,@body
-     (let* ((eye-fwd (* (v! 0.0 0.0 -1.0) (mat3 modelview-matrix)))
+     (let* ((eye-fwd (* (v! 0.0 0.0 -1.0) (mat3 view-matrix)))
 	    (eye-hit-z (* (- ,depth) (dot ,rd eye-fwd)))
 	    (p10 (z (aref projection-matrix 2)))
 	    (p11 (z (aref projection-matrix 3)))

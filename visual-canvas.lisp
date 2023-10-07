@@ -298,7 +298,7 @@
 	  (camera :vec3)
 	  (lookat :vec3)
 	  (projection-matrix :mat4)
-	  (modelview-matrix :mat4)
+	  (view-matrix :mat4)
 	  (imouse :vec3))
        (:vertex (:in ((pos :vec2))
 		 :out ((vfuv :vec2)))

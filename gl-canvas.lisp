@@ -6,7 +6,7 @@
    (height :initarg :height :accessor height)
    (camera :initarg :camera :reader camera)
    (projection-matrix :accessor projection-matrix)
-   (modelview-matrix :accessor modelview-matrix)))
+   (view-matrix :accessor view-matrix)))
 
 (defmethod init ((view gl-canvas)))
 (defmethod draw ((view gl-canvas)))
@@ -36,5 +36,5 @@
 
 
 
-(export '(gl-canvas bitmap-context context init draw reshape release projection-matrix modelview-matrix)
+(export '(gl-canvas bitmap-context context init draw reshape release projection-matrix view-matrix)
 	:gfx)
