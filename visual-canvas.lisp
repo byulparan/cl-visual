@@ -410,6 +410,10 @@
 		      :center-x (float center-x 1f0) :center-y (float center-y 1f0) :center-z (float center-z 1f0))
     t))
 
+(defun gfx::camera-info (&optional (camera (camera (renderer *visual-canvas*))))
+  (list (gfx:eye-x camera) (gfx:eye-y camera) (gfx:eye-z camera)
+	(gfx:center-x camera) (gfx:center-y camera) (gfx:center-z camera)
+	(gfx:up-x camera) (gfx:up-y camera) (gfx:up-z camera)))
 
 
 (defun gfx::toggle-fullscreen ()
@@ -425,6 +429,6 @@
 
 (gfx::clear-pipeline)
 
-(export '(gfx::define-shader gfx::start-shader gfx::toggle-fullscreen gfx::shader-close gfx::clear-pipeline gfx::add-uniform gfx::reset-visual-camera) :gfx)
+(export '(gfx::define-shader gfx::start-shader gfx::toggle-fullscreen gfx::shader-close gfx::clear-pipeline gfx::add-uniform gfx::reset-visual-camera gfx::camera-info) :gfx)
 
 
