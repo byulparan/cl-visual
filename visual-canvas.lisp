@@ -406,8 +406,8 @@
 				   (center-x 0.0) (center-y 0.0) (center-z 0.0))
   (when *visual-canvas*
     (gfx:reset-camera (camera (renderer *visual-canvas*))
-		      :eye-x eye-x :eye-y eye-y :eye-z eye-z
-		      :center-x center-x :center-y center-y :center-z center-z)
+		      :eye-x (float eye-x 1f0) :eye-y (float eye-y 1f0) :eye-z (float eye-z 1f0)
+		      :center-x (float center-x 1f0) :center-y (float center-y 1f0) :center-z (float center-z 1f0))
     t))
 
 
