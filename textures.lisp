@@ -778,7 +778,7 @@
 	    (gl:matrix-mode :projection)
 	    (gl:load-identity)
 	    (gl:ortho 0 width 0 height -100.0 100.0)
-	    (gl:matrix-mode :view)
+	    (gl:matrix-mode :modelview)
 	    (gl:load-identity)
 	    (ci:draw-image (tex :ci-context) ci-image rect 
 			   (if fixed-size (ns:rect 0 0 (first fixed-size) (second fixed-size)) rect))
