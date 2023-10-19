@@ -27,6 +27,7 @@
 	 ,@body))
      (export ',name)))
 
+
 (define-macro-library with-uv ((uv &optional (normal-uv 'uvn)) &body body)
   `(let* ((,normal-uv (/ (xy gl-frag-coord) (xy iresolution)))
 	  (,uv (- (* ,normal-uv 2.0) 1.0)))
@@ -38,6 +39,31 @@
 	(loop for i from 0 below n
 	      collect `(let ((,var ,i))
 			 ,@body))))
+
+
+(define-macro-library texture! (texture uv &optional flip)
+  (let* ((target (glsl::compile-form texture))
+	 (size (ecase (glsl::code-type target)
+		 (:sampler-2d 1.0)
+		 (:sampler-2d-rect `(texture-size ,texture)))))
+    (if flip
+	(alexandria:once-only (uv)
+	  `(texture ,texture (* (v! (x ,uv) (- 1.0 (y ,uv))) ,size)))
+      `(texture ,texture (* ,uv ,size)))))
+
+
+(define-macro-library screen-frame (sample pos &optional (col .0))
+  (alexandria:with-gensyms (c p)
+    (let* ((target (glsl::compile-form sample))
+	   (size (ecase (glsl::code-type target)
+		   (:sampler-2d 1.0)
+		   (:sampler-2d-rect `(texture-size ,sample)))))
+      `(let* ((,p ,pos)
+	      (,c (- (texture ,sample (* (v! (x ,p) (- 1.0 (y ,p))) ,size)) ,col)))
+	 (when (or (< (y ,p) 0.0) (> (y ,p) 1.0)
+		   (< (x ,p) 0.0) (> (x ,p) 1.0))
+	   (setf ,c (vec4 .0)))
+	 (xyz ,c)))))
 
 (define-macro-library video-texture (texture uvm)
   `(let ((new-color (texture ,texture (v! (x ,uvm) (- 1.0 (y ,uvm))))))
@@ -271,16 +297,6 @@
 		  (t (setf lighting (+ (* d ndl) (* s (pow ndh alpha))))))
 	   (incf col lighting)
 	   col)))))
-
-(define-macro-library texture! (texture uv &optional flip)
-  (let* ((target (glsl::compile-form texture))
-	 (size (ecase (glsl::code-type target)
-		 (:sampler-2d 1.0)
-		 (:sampler-2d-rect `(texture-size ,texture)))))
-    (if flip
-	(alexandria:once-only (uv)
-	  `(texture ,texture (* (v! (x ,uv) (- 1.0 (y ,uv))) ,size)))
-      `(texture ,texture (* ,uv ,size)))))
 
 (define-function-library post-bloom ((texture :sampler-2d-rect) (size :float) (sigma :float) (horizon :int)
 				     (uv :vec2) (resolution :vec2))
