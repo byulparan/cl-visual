@@ -294,7 +294,7 @@
 		  collect (list (intern (format nil "IVOLUME~d" i)) :float))
 	  ,@(loop for i from 0 below *num-icontrol*
 		  collect (list (intern (format nil "ICONTROL~d" i)) :float))
-	  (iresolution :vec2)
+	  (sl::iresolution :vec2)
 	  (camera :vec3)
 	  (lookat :vec3)
 	  (projection-matrix :mat4)
