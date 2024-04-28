@@ -252,7 +252,12 @@
 					    :request-size size))
 	   (texture-cache (core-video:make-texture-cache (cgl-context view)
 	   						 (pixel-format view))))
-      (av:start-capture capture)
+      ;; 
+      ;; caugth error when call `start-capture' directly in Silicon Mac.
+      ;; so call async used `ns:queue-for-event-loop',  then It's OK.
+      ;; 실리콘 맥에서 av:start-capture 를 바로 호출하면 에러가 발생한다.
+      ;; 그래서 queue-for-event-loop 을 이용해서 한 사이클 뒤에서 실행되도록 수정
+      (ns:queue-for-event-loop (lambda () (av:start-capture capture)))
       (list capture
 	    :release-p t
 	    :texture-cache texture-cache
