@@ -11,6 +11,7 @@
 		       #:send-message
 		       #:receive-message
 		       #:mailbox-empty-p)
+  (:import-from :shader-lib #:iresolution)
   (:export #:*num-ivolume*
 	   #:*num-icontrol*
 	   #:*visual-volume-function*
