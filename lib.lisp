@@ -115,6 +115,8 @@
 
 
 
+
+
 (define-function-library internal-op ((d1 :float) (d2 :float))
   (let* ((result 0.0))
     (if! (< d1 d2) (setf result d1)
@@ -123,13 +125,20 @@
 
 (unexport 'internal-op)
 
-(define-macro-library op-u (d1 &body body)
-  (if body (let* ((d2 (car body))
-		  (item `(internal-op ,d1 ,d2)))
-	     (loop for b in (cdr body)
-		   do (setf item `(internal-op ,item ,b)))
-	     item)
-    d1))
+(progn
+  (let* ((glsl::*macro-table* gfx::*library-macro-table*))
+    (v-defmacro op-u
+	(d1 &body body)
+      (if body
+          (let* ((d2 (car body)) (item `(internal-op ,d1 ,d2)))
+            (loop for b in (cdr body)
+                  do (setf item `(internal-op ,item ,b)))
+            item)
+        d1)))
+  (export 'op-u))
+
+
+
 
 (define-function-library internal-op2 ((d1 :vec2) (d2 :vec2))
   (let* ((result (v! 0.0 0.0)))
@@ -139,13 +148,20 @@
 
 (unexport 'internal-op2)
 
-(define-macro-library op-u2 (d1 &body body)
-  (if body (let* ((d2 (car body))
-		  (item `(internal-op2 ,d1 ,d2)))
-	     (loop for b in body
-		   do (setf item `(internal-op2 ,item ,b)))
-	     item)
-    d1))
+(progn
+  (let* ((glsl::*macro-table* gfx::*library-macro-table*))
+    (v-defmacro op-u2
+	(d1 &body body)
+      (if body
+          (let* ((d2 (car body)) (item `(internal-op2 ,d1 ,d2)))
+            (loop for b in body
+                  do (setf item `(internal-op2 ,item ,b)))
+            item)
+        d1)))
+  (export 'op-u2))
+
+
+
 
 (define-function-library internal-op-s ((d1 :float) (d2 :float))
   (let* ((result 0.0))
@@ -156,13 +172,17 @@
 
 (unexport 'internal-op-s)
 
-(define-macro-library op-s (d1 &body body)
-  (if body (let* ((d2 (car body))
-		  (item `(internal-op-s ,d1 ,d2)))
-	     (loop for b in (cdr body)
-		   do (setf item `(internal-op-s ,item ,b)))
-	     item)
-    d1))
+(progn
+  (let* ((glsl::*macro-table* gfx::*library-macro-table*))
+    (v-defmacro op-s
+	(d1 &body body)
+      (if body
+          (let* ((d2 (car body)) (item `(internal-op-s ,d1 ,d2)))
+            (loop for b in (cdr body)
+                  do (setf item `(internal-op-s ,item ,b)))
+            item)
+        d1)))
+  (export 'op-s))
 
 
 (define-function-library op-s2 ((d1 :vec2) (d2 :vec2))
@@ -171,6 +191,9 @@
 	 (setf result (v! (- (x d1)) (y d1)))
 	 (setf result d2))
     result))
+
+
+
 
 (define-function-library sd-plane ((p :vec3) (n :vec4))
   (+ (dot p (xyz n)) (w n)))
