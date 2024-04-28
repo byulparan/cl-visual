@@ -4,8 +4,6 @@
 (defvar *visual-canvas-init-functions* nil)
 (defvar *visual-canvas-release-functions* nil)
 
-(defun gfx::add-uniform (name type)
-  (setf (gethash name gfx::*gfx-uniform-table*) (glsl::make-code-object type (ppcre:regex-replace-all "-" (string-downcase name) "_"))))
 
 (defun gfx::clear-pipeline (&optional remove-uniforms)
   (gfx:reinit-shader-system)

@@ -12,5 +12,6 @@
 	       (:file "fps-info")
 	       (:file "visual-canvas")
 	       (:file "textures")
+	       (:file "lib")
 	       (:module "post-fx"
 		:components ((:file "bloom")))))
