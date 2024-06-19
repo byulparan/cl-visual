@@ -11,13 +11,7 @@
 		       #:send-message
 		       #:receive-message
 		       #:mailbox-empty-p)
-  (:export #:*num-ivolume*
-	   #:*num-icontrol*
-	   #:*visual-volume-function*
-	   #:*visual-control-function*
-	   #:*visual-canvas-init-functions*
-	   #:*visual-canvas-release-functions*
-	   #:ichannel0
+  (:export #:ichannel0
 	   #:ichannel1
 	   #:ichannel2
 	   #:ichannel3

@@ -57,12 +57,6 @@
     :accessor close-fn)
    (output-filter
     :accessor output-filter)
-   (audio-group
-    :accessor audio-group)
-   (audio-data
-    :initform  nil
-    :accessor audio-data
-    :allocation :class)
    (fps-info
     :accessor fps-info)
    (info
