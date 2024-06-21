@@ -154,9 +154,12 @@
 	 (wrap :clamp-to-edge)
 	 (fixed-size (tex :size))
 	 (fixed-context (tex :context))
-	 (context (if fixed-context fixed-context (apply #'cg:make-bitmap-context
+	 (bitmap-context (if fixed-context fixed-context (apply #'cg:make-bitmap-context
 							 (if fixed-size fixed-size (list (width view) (height view))))))
-	 (object (make-instance (tex :src) :context context)))
+	 (layer (cg:make-layer bitmap-context (cg:context-width bitmap-context) (cg:context-height bitmap-context)))
+	 (object (make-instance (tex :src)
+		   :bitmap-context bitmap-context
+		   :context (cg:layer-context layer))))
     (gfx:init object)
     (gl:bind-texture target texture)
     (gl:tex-image-2d target 0 :rgba8 (gfx:width object) (gfx:height object) 0 :rgba :unsigned-byte
@@ -169,6 +172,7 @@
     (list device 
 	  :fixed-size fixed-size
 	  :fixed-context fixed-context
+	  :layer layer
 	  :object object
 	  :tex-id texture :target target)))
 
@@ -181,21 +185,29 @@
 	       (or 
 		(/= (gfx:width object) (width view))
 		(/= (gfx:height object) (height view))))
-      (cg:release-context (gfx:context object))
-      (setf (gfx:context object) (cg:make-bitmap-context (width view) (height view)))
+      (cg:release-context (gfx:bitmap-context object))
+      (cg:release-layer (tex :layer))
+      (let* ((bitmap-context (cg:make-bitmap-context (width view) (height view)))
+	     (layer (cg:make-layer bitmap-context (width view) (height view))))
+	(setf (tex :layer) layer
+	      (gfx:bitmap-context object) bitmap-context
+	      (gfx:context object) (cg:layer-context layer)))
       (gfx:reshape object)
       (gl:tex-image-2d (tex :target) 0 :rgba8 (gfx:width object) (gfx:height object) 0 :rgba :unsigned-byte
 		       (cffi:null-pointer)))
+    (cg:clear-rect (gfx:bitmap-context object) (ns:rect 0 0 (gfx:width object) (gfx:height object)))
     (gfx:draw object)
+    (cg:draw-layer-at-point (gfx:bitmap-context object) (ns:point 0 0) (tex :layer))
     (gl:tex-sub-image-2d (tex :target) 0 0 0 (gfx:width object) (gfx:height object) :rgba :unsigned-byte
-			 (cg:context-data (gfx:context object)))))
+			 (cg:context-data (gfx:bitmap-context object)))))
 
 (defmethod release-texture-device (view (device (eql :bitmap-context)) texture-device)
   (declare (ignorable view device))
   (let* ((object (tex :object)))
     (gfx:release object)
     (when (not (tex :fixed-context))
-      (cg:release-context (gfx:context object))))
+      (cg:release-context (gfx:bitmap-context object)))
+    (cg:release-layer (tex :layer)))
   (gl:delete-texture (tex :tex-id)))
 
 
