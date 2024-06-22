@@ -3,6 +3,10 @@
 (defmacro tex (key)
   `(getf texture-device ,key))
 
+(defmethod update-texture-device :after (view device texture-device)
+  (when (tex :info)
+    (uiop:println (tex :tex-id))))
+
 
 ;; previous frame
 (defmethod init-texture-device (view (device (eql :previous-frame)) texture-device)
@@ -17,7 +21,7 @@
     (gl:tex-parameter target :texture-wrap-s wrap)
     (gl:tex-parameter target :texture-wrap-t wrap)
     (gl:bind-texture  target 0)
-    (list device :tex-id texture :target target :width 0 :height 0)))
+    (list device :tex-id texture :target target :width 0 :height 0 :info (tex :info))))
 
 (defmethod update-texture-device (view (device (eql :previous-frame)) texture-device)
   (declare (ignorable view device))
@@ -73,7 +77,7 @@
     (gl:tex-parameter target :texture-wrap-t wrap)
     (when use-mipmap (gl:generate-mipmap target))
     (gl:bind-texture  target 0)
-    (list device :tex-id texture :target target)))
+    (list device :tex-id texture :target target :info (tex :info))))
 
 
 (defmethod update-texture-device (view (device (eql :image)) texture-device)
@@ -130,7 +134,7 @@
       (gl:tex-parameter target :texture-wrap-r wrap)
       (when use-mipmap (gl:generate-mipmap target))
       (gl:bind-texture target 0)
-      (list device :tex-id texture :target target))))
+      (list device :tex-id texture :target target :info (tex :info)))))
 
 
 (defmethod update-texture-device (view (device (eql :cubemap)) texture-device)
@@ -174,7 +178,8 @@
 	  :fixed-context fixed-context
 	  :layer layer
 	  :object object
-	  :tex-id texture :target target)))
+	  :tex-id texture :target target
+	  :info (tex :info))))
 
 (defmethod update-texture-device (view (device (eql :bitmap-context)) texture-device)
   (declare (ignorable view device))
@@ -216,23 +221,27 @@
 ;;;
 (defmethod init-texture-device (view (device av:player) texture-device)
   (declare (ignorable view texture-device))
-  (let* ((texture-cache (core-video:make-texture-cache (cgl-context view)
-						       (pixel-format view)))
-	 (target (tex :target)))
-    (list device
-	  :texture-cache texture-cache
-	  :target (if target target :texture-rectangle)
-	  :info (tex :info))))
+  (list device 
+	:info (tex :info)
+	:tex-id nil
+	:target :texture-rectangle))
 
 (defmethod update-texture-device (view (device av:player) texture-device)
-  (declare (ignorable view))
-  (av:with-texture-cache (device (tex :texture-cache) width height)
-    (when (tex :info)
-      (uiop:println (list :player-frame-size width height)))))
-
-(defmethod release-texture-device (view (device av:player) texture-device)
-  (declare (ignorable view device))
-  (core-video:release-texture-cache (tex :texture-cache)))
+  (let ((texture-cache (texture-cache view)))
+    (when (av-foundation:ready device)
+      (let* ((m-head (av-foundation:pixel-buffer device)))
+	(unless (cffi-sys:null-pointer-p m-head)
+          (let* ((texture-object (core-video:texture-cache-texture texture-cache m-head))
+		 (texture (core-video:texture-name texture-object))
+		 (width (core-video:buffer-width m-head))
+		 (height (core-video:buffer-height m-head)))
+            (cl-opengl-bindings:bind-texture :texture-rectangle texture)
+	    (when (tex :info)
+              (uiop/stream:println (list :player-frame-size (list width height)
+					 :texture-id texture)))
+	    (cl-nextstep:cf-autorelease texture-object)
+	    (setf (tex :tex-id) texture)
+	    (setf (texture-cache-flush view) t)))))))
 
 
 
@@ -244,15 +253,13 @@
   (let* ((index (tex :src))
 	 (size (tex :size)))
     (unless index (setf index 0))
-    (let* ((capture (av:make-camera-capture index :request-size size))
-	   (texture-cache (core-video:make-texture-cache (cgl-context view)
-							 (pixel-format view))))
+    (let* ((capture (av:make-camera-capture index :request-size size)))
       (av:start-capture capture)
       (list capture
 	    :release-p t
-	    :texture-cache texture-cache
-	    :target :texture-rectangle
-	    :info (tex :info)))))
+	    :info (tex :info)
+	    :tex-id nil
+	    :target :texture-rectangle))))
 
 (defmethod init-texture-device (view (device (eql :screen-frame)) texture-device)
   (declare (ignorable view))
@@ -261,9 +268,7 @@
 	 (size (tex :size)))
     (let* ((capture (av:make-screen-capture :crop-rect (when rect (apply #'ns:rect rect))
 					    :min-frame-duration (if fps fps 60)
-					    :request-size size))
-	   (texture-cache (core-video:make-texture-cache (cgl-context view)
-	   						 (pixel-format view))))
+					    :request-size size)))
       ;; 
       ;; caugth error when call `start-capture' directly in Silicon Mac.
       ;; so call async used `ns:queue-for-event-loop',  then It's OK.
@@ -272,26 +277,37 @@
       (ns:queue-for-event-loop (lambda () (av:start-capture capture)))
       (list capture
 	    :release-p t
-	    :texture-cache texture-cache
-	    :target :texture-rectangle
-	    :info (tex :info)))))
+	    :info (tex :info)
+	    :tex-id nil
+	    :target :texture-rectangle))))
 
 
 (defmethod init-texture-device (view (device av:capture) texture-device)
   (declare (ignorable view texture-device))
-  (let* ((texture-cache (core-video:make-texture-cache (cgl-context view)
-						       (pixel-format view))))
-    (list device
-	  :release-p nil
-	  :texture-cache texture-cache
-	  :target :texture-rectangle
-	  :info (tex :info))))
+  (list device
+	:release-p nil
+	:info (tex :info)
+	:tex-id nil
+	:target :texture-rectangle))
+
 
 (defmethod update-texture-device (view (device av:capture) texture-device)
-  (declare (ignorable view))
-  (av:with-texture-cache (device (tex :texture-cache) width height)
-    (when (tex :info)
-      (uiop:println (list :capture-frame-size width height)))))
+  (let ((texture-cache (texture-cache view)))
+    (when (av-foundation:ready device)
+      (let* ((m-head (av-foundation:pixel-buffer device)))
+	(unless (cffi-sys:null-pointer-p m-head)
+          (let* ((texture-object (core-video:texture-cache-texture texture-cache m-head))
+		 (texture (core-video:texture-name texture-object))
+		 (width (core-video:buffer-width m-head))
+		 (height (core-video:buffer-height m-head)))
+            (cl-opengl-bindings:bind-texture :texture-rectangle texture)
+	    (when (tex :info)
+              (uiop/stream:println (list :player-frame-size (list width height)
+					 :texture-id texture)))
+	    (cl-nextstep:cf-autorelease texture-object)
+	    (setf (tex :tex-id) texture)
+	    (setf (texture-cache-flush view) t)))))))
+
 
 (defmethod release-texture-device (view (device av:capture) texture-device)
   (declare (ignorable view))
@@ -299,8 +315,7 @@
     (ns:queue-for-event-loop
      (lambda ()
        (av:stop-capture device)
-       (av:release-capture device))))
-  (core-video:release-texture-cache (tex :texture-cache)))
+       (av:release-capture device)))))
 
 ;;; 
 ;;; syphon
@@ -317,7 +332,9 @@
 	    :name (second dict)
 	    :size (list 0 0)
 	    :syphon-client nil
-	    :target :texture-rectangle))))
+	    :tex-id nil
+	    :target :texture-rectangle
+	    :info (tex :info)))))
 
 (defmethod update-texture-device (view (device (eql :syphon)) texture-device)
   (declare (ignore device))
@@ -339,6 +356,7 @@
 	    (format t "~&<Syphon-\"~a~@[:~a~]\"> image-size: ~a, ~a image-name: ~a~%"
 		    (tex :app) (tex :name) w h name)
 	    (setf (tex :size) (list w h)))
+	  (setf (tex :tex-id) name)
 	  (gl:bind-texture (tex :target) name))))))
 
 (defmethod release-texture-device (view (device (eql :syphon)) texture-device)
@@ -366,7 +384,8 @@
     (%gl:tex-buffer target :r32f tbo)
     (gl:bind-texture target 0)
     (list device 
-	  :tex-id texture :target target :tbo tbo)))
+	  :tex-id texture :target target :tbo tbo
+	  :info (tex :info))))
 
 (defmethod update-texture-device (view (device #+sbcl sb-kernel::simple-array-single-float
 					        #+ccl ccl::simple-short-float-vector
@@ -412,7 +431,8 @@
 	      :tex-id texture
 	      :target target
 	      :width width
-	      :height height)))))
+	      :height height
+	      :info (tex :info))))))
 
 (defmethod update-texture-device (view (device (eql :io-surface)) texture-device)
   (declare (ignore device))
@@ -469,7 +489,8 @@
 	  :multisample (tex :multisample)
 	  :gl-canvas gl-canvas
 	  :fixed-size fixed-size
-	  :output output)))
+	  :output output
+	  :info (tex :info))))
 
 (defmethod update-texture-device (view (device (eql :gl-canvas)) texture-device)
   (declare (ignore device))
@@ -667,7 +688,8 @@
 	  :surface surface
 	  :multisample (tex :multisample)
 	  :fixed-size fixed-size
-	  :output output)))
+	  :output output
+	  :info (tex :info))))
 
 (defmethod update-texture-device (view (device (eql :shader)) texture-device)
   (declare (ignore device))
@@ -757,7 +779,8 @@
 	  :renderer renderer
 	  :surface surface
 	  :src src
-	  :multisample (tex :multisample))))
+	  :multisample (tex :multisample)
+	  :info (tex :info))))
 
 
 (defmethod update-texture-device (view (device (eql :ci-filter)) texture-device)
