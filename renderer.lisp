@@ -97,6 +97,11 @@
     :initform (make-hash-table :test #'equal)
     :reader tex-image-table
     :allocation :class)
+   (texture-cache
+    :accessor texture-cache)
+   (texture-cache-flush
+    :initform nil
+    :accessor texture-cache-flush)
    (gl-canvas
     :initform nil
     :accessor gl-canvas)
@@ -136,6 +141,11 @@
 
 
 ;;; ===========================================================================
+
+
+(defmethod initialize-instance :after ((instance visual-renderer) &key)
+  (setf (texture-cache instance) (core-video:make-texture-cache (cgl-context instance)
+								(pixel-format instance))))
 
 
 (defun reinit-shader (renderer new-shader)
@@ -263,7 +273,10 @@
 		   (:previous-frame
 		    (gl:copy-tex-sub-image-2d target 0 0 0  0 0 w h)))
 		 (gl:bind-texture target 0)))) 
-    (gl:flush)))
+    (gl:flush)
+    (when (texture-cache-flush renderer)
+      (core-video:texture-cache-flush (texture-cache renderer) 0)
+      (setf (texture-cache-flush renderer) nil))))
 
 (defmethod release ((renderer visual-renderer))
   (with-cgl-context ((cgl-context renderer))
@@ -272,5 +285,6 @@
     (loop for device in (texture-devices renderer)
 	  do (release-texture-device renderer (car device) (cdr device)))
     (gfx:release-environment renderer))
+  (core-video:release-texture-cache (texture-cache renderer))
   (call-next-method))
 
