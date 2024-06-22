@@ -547,7 +547,12 @@
    (texture-devices :initarg :texture-devices :accessor texture-devices)
    (gl-canvas :initarg :gl-canvas :accessor gl-canvas)
    (user-fn :initarg :user-fn :reader user-fn)
-   (resize-p :initform nil :accessor resize-p)))
+   (resize-p :initform nil :accessor resize-p)
+   (texture-cache
+    :accessor texture-cache)
+   (texture-cache-flush
+    :initform nil
+    :accessor texture-cache-flush)))
 
 (defmethod gfx:init ((view shader-surface))
   (let* ((devices (texture-devices view)))
@@ -574,7 +579,8 @@
       (when (gl-canvas view)
 	(setf (gl-canvas view) (make-instance (gl-canvas view) :width (gfx:width view) :height (gfx:height view)
 					      :camera (gfx:camera view)))
-	(gfx:init (gl-canvas view))))))
+	(gfx:init (gl-canvas view)))
+      (setf (texture-cache view) (core-video:make-texture-cache (cgl-context view) (pixel-format view))))))
 
 (defmethod gfx:draw ((view shader-surface))
   (let* ((w (gfx:width view))
@@ -625,13 +631,17 @@
       (when (resize-p view)
 	(gfx:reshape (gl-canvas view))
 	(setf (resize-p view) nil))
-      (gfx:draw (gl-canvas view)))))
+      (gfx:draw (gl-canvas view)))
+    (when (texture-cache-flush view)
+      (core-video:texture-cache-flush (texture-cache view) 0)
+      (setf (texture-cache-flush view) nil))))
 
 (defmethod gfx:release ((view shader-surface))
   (when (gl-canvas view)
     (gfx:release (gl-canvas view)))
   (loop for device in (texture-devices view)
-	do (release-texture-device view (car device) (cdr device))))
+	do (release-texture-device view (car device) (cdr device)))
+  (core-video:release-texture-cache (texture-cache view)))
 
 
 (defmethod cgl-context ((view shader-surface))
