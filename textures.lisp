@@ -726,7 +726,7 @@
 
 
 ;;; ci-filter
-
+;; shader-surface 는 사실 필요 없지만 width, height, renderer 등의 기본적인 정보를 texture source 에 전달하기 위해 유지.
 (defmethod init-texture-device (view (device (eql :ci-filter)) texture-device)
   (declare (ignorable device))
   (let* ((core-profile nil)
@@ -736,8 +736,7 @@
 	 (height (height view))
 	 (renderer (make-instance 'renderer :width width :height height :core-profile core-profile))
 	 (surface (make-instance 'shader-surface :width width :height height
-				 :renderer renderer :gl-canvas nil
-				 :texture-devices nil))
+				 :renderer renderer))
 	 (src (tex :src)))
     (resize-framebuffer renderer width height)
     (with-cgl-context ((cgl-context renderer))
@@ -810,8 +809,9 @@
       (let* ((fbo (if (tex :multisample) (fbo renderer)
 		    (gfx::output-fbo (fbo renderer)))))
 	(gfx:with-fbo (fbo)
-	  (release-texture-device surface (car src) (cdr src))
-	  (gfx:release surface))))
+	  (release-texture-device surface (car src) (cdr src)))))
     (release renderer)
     (ns:release (tex :ci-context))
     (gl:delete-texture (tex :tex-id))))
+
+
