@@ -257,6 +257,8 @@
 	    (setf (tex :tex-id) texture)
 	    (setf (texture-cache-flush view) t)))))))
 
+(defmethod release-texture-device (view (device av:player) texture-device)
+  (declare (ignore view device texture-device)))
 
 
 ;;; 
