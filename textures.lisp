@@ -534,7 +534,7 @@
       (let* ((fbo (if (tex :multisample) (fbo renderer) (gfx::output-fbo (fbo renderer)))))
 	(gfx:with-fbo (fbo)
 	  (setf (gfx:projection-matrix canvas) (kit.math:perspective-matrix 45.0 (/ width height) .1 10000.0)
-		(gfx:view-matrix canvas) (gfx:eval-camera (gfx:camera canvas)))
+		(gfx:view-matrix canvas) (gfx:look-at (gfx:camera canvas)))
 	  (when resize
 	    (gfx:reshape canvas))
 	  (gfx:draw canvas)))
@@ -608,7 +608,7 @@
     (when (user-fn view)
       (funcall (user-fn view)))
     (setf (gfx:projection-matrix view) (kit.math:perspective-matrix 45.0 (/ w h) .1 10000.0)
-	  (gfx:view-matrix view) (gfx:eval-camera (gfx:camera view)))
+	  (gfx:view-matrix view) (gfx:look-at (gfx:camera view)))
     (loop for unit in '(:texture0 :texture1 :texture2 :texture3
 			:texture4 :texture5 :texture6 :texture7)
 	  for device in (texture-devices view)
@@ -627,14 +627,8 @@
       (gfx:set-uniform 'iglobal-time time)
       (gfx:set-uniform 'itime time)
       (gfx:set-uniform 'iresolution (list w h))
-      (gfx:set-uniform 'camera (list
-				(gfx::eye-x (gfx:camera view))
-				(gfx::eye-y (gfx:camera view))
-				(gfx::eye-z (gfx:camera view))))
-      (gfx:set-uniform 'lookat (list
-				(gfx::center-x (gfx:camera view))
-				(gfx::center-y (gfx:camera view))
-				(gfx::center-z (gfx:camera view))))
+      (gfx:set-uniform 'camera (gfx:camera-position (gfx:camera view)))
+      (gfx:set-uniform 'lookat (gfx:camera-target (gfx:camera view)))
       (gfx:set-uniform 'projection-matrix (gfx:projection-matrix view))
       (gfx:set-uniform 'view-matrix (gfx:view-matrix view))
       (gfx:set-uniform 'imouse (imouse (renderer *visual-canvas*)))

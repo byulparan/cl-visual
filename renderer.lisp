@@ -223,14 +223,8 @@
       (gfx:set-uniform 'iglobal-time time)
       (gfx:set-uniform 'itime time)
       (gfx:set-uniform 'iresolution (list w h))
-      (gfx:set-uniform 'camera (list
-				(gfx::eye-x (camera renderer))
-				(gfx::eye-y (camera renderer))
-				(gfx::eye-z (camera renderer))))
-      (gfx:set-uniform 'lookat (list
-				(gfx::center-x (camera renderer))
-				(gfx::center-y (camera renderer))
-				(gfx::center-z (camera renderer))))
+      (gfx:set-uniform 'camera (gfx:camera-position (camera renderer)))
+      (gfx:set-uniform 'lookat (gfx:camera-target (camera renderer)))
       (gfx:set-uniform 'projection-matrix (projection-matrix renderer))
       (gfx:set-uniform 'view-matrix (view-matrix renderer))
       (gfx:set-uniform 'imouse (imouse renderer))
@@ -255,7 +249,7 @@
 	(gl:viewport 0 0 w h)
 	(gl:clear :color-buffer-bit :depth-buffer-bit)
  	(setf (projection-matrix renderer) (kit.math:perspective-matrix 45.0 (/ w h) .1 10000.0)
-	      (view-matrix renderer) (gfx:eval-camera (camera renderer))
+	      (view-matrix renderer) (gfx:look-at (camera renderer))
 	      (render-time renderer) (funcall (reinit-time renderer)))
 	(loop for unit in '(:texture0 :texture1 :texture2 :texture3
 			    :texture4 :texture5 :texture6 :texture7)

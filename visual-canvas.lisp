@@ -406,9 +406,9 @@
     t))
 
 (defun gfx::camera-info (&optional (camera (camera (renderer *visual-canvas*))))
-  (list (gfx:eye-x camera) (gfx:eye-y camera) (gfx:eye-z camera)
-	(gfx:center-x camera) (gfx:center-y camera) (gfx:center-z camera)
-	(gfx:up-x camera) (gfx:up-y camera) (gfx:up-z camera)))
+  (appned (gfx:camera-position camera)
+	  (gfx:camera-target camera)
+	  (list (gfx::up-x camera) (gfx::up-y camera) (gfx::up-z camera))))
 
 
 (defun gfx::toggle-fullscreen ()
