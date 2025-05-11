@@ -160,25 +160,23 @@
 	 (width (if fixed-size (first fixed-size) (width view)))
 	 (height (if fixed-size (second fixed-size) (height view)))
 	 (pixel-buffer (core-video:make-buffer (width view) (height view)))
-	 (bitmap-context (if fixed-context fixed-context
-			   (let* ((context nil))
-			     (core-video:buffer-lock-base-address pixel-buffer 0)
-			     (setf context (cg:make-bitmap-context
-					    width height
-					    :data (core-video:buffer-base-address pixel-buffer)
-					    :alpha-info :first))
-			     (core-video:buffer-unlock-base-address pixel-buffer 0)
-			     context)))
-	 (layer (cg:make-layer bitmap-context (cg:context-width bitmap-context) (cg:context-height bitmap-context)))
+	 (context (if fixed-context fixed-context
+		    (let* ((context nil))
+		      (core-video:buffer-lock-base-address pixel-buffer 0)
+		      (setf context (cg:make-bitmap-context
+				     width height
+				     :data (core-video:buffer-base-address pixel-buffer)
+				     :alpha-info :first))
+		      (core-video:buffer-unlock-base-address pixel-buffer 0)
+		      context)))
 	 (object (make-instance (tex :src)
-		   :bitmap-context bitmap-context
-		   :context (cg:layer-context layer))))
+		   :context context)))
+    (cg:clear-rect context (ns:rect 0 0 width height))
     (gfx:init object)
     (list device 
 	  :fixed-size fixed-size
 	  :fixed-context fixed-context
 	  :pixel-buffer pixel-buffer
-	  :layer layer
 	  :object object
 	  :tex-id nil
 	  :target target
@@ -192,27 +190,21 @@
 	       (or 
 		(/= (gfx:width object) (width view))
 		(/= (gfx:height object) (height view))))
-      (cg:release-context (gfx:bitmap-context object))
-      (cg:release-layer (tex :layer))
+      (cg:release-context (gfx:context object))
       (core-video:release-buffer (tex :pixel-buffer))
       (let* ((pixel-buffer (core-video:make-buffer (width view) (height view)))
-	     (bitmap-context (let* ((context nil))
-			       (core-video:buffer-lock-base-address pixel-buffer 0)
-			       (setf context (cg:make-bitmap-context
-					      (width view) (height view)
-					      :data (core-video:buffer-base-address pixel-buffer)
-					      :alpha-info :first))
-			       (core-video:buffer-unlock-base-address pixel-buffer 0)
-			       context))
-	     (layer (cg:make-layer bitmap-context (width view) (height view))))
+	     (context (let* ((context nil))
+			(core-video:buffer-lock-base-address pixel-buffer 0)
+			(setf context (cg:make-bitmap-context
+				       (width view) (height view)
+				       :data (core-video:buffer-base-address pixel-buffer)
+				       :alpha-info :first))
+			(core-video:buffer-unlock-base-address pixel-buffer 0)
+			context)))
 	(setf (tex :pixel-buffer) pixel-buffer
-	      (tex :layer) layer
-	      (gfx:bitmap-context object) bitmap-context
-	      (gfx:context object) (cg:layer-context layer)))
+	      (gfx:context object) context))
       (gfx:reshape object))
-    (cg:clear-rect (gfx:bitmap-context object) (ns:rect 0 0 (gfx:width object) (gfx:height object)))
     (gfx:draw object)
-    (cg:draw-layer-at-point (gfx:bitmap-context object) (ns:point 0 0) (tex :layer))
     (let* ((texture-object (core-video:texture-cache-texture (texture-cache view) (tex :pixel-buffer)))
 	   (texture (core-video:texture-name texture-object)))
       (gl:bind-texture (tex :target) texture)
@@ -220,13 +212,13 @@
       (setf (tex :tex-id) texture)
       (setf (texture-cache-flush view) t))))
 
+
 (defmethod release-texture-device (view (device (eql :bitmap-context)) texture-device)
   (declare (ignorable view device))
   (let* ((object (tex :object)))
     (gfx:release object)
     (when (not (tex :fixed-context))
-      (cg:release-context (gfx:bitmap-context object)))
-    (cg:release-layer (tex :layer))
+      (cg:release-context (gfx:context object)))
     (core-video:release-buffer (tex :pixel-buffer))))
 
 

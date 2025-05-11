@@ -20,8 +20,7 @@
 
 ;; BitmapContext
 (defclass bitmap-context ()
-  ((context :initarg :context :accessor context)
-   (bitmap-context :initarg :bitmap-context :accessor bitmap-context)))
+  ((context :initarg :context :accessor context)))
 
 
 (defmethod init ((view bitmap-context)))
@@ -30,10 +29,10 @@
 (defmethod release ((view bitmap-context)))
 
 (defmethod width ((view bitmap-context))
-  (cg:context-width (bitmap-context view)))
+  (cg:context-width (context view)))
 
 (defmethod height ((view bitmap-context))
-  (cg:context-height (bitmap-context view)))
+  (cg:context-height (context view)))
 
 
 
