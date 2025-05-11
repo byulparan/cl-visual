@@ -362,7 +362,8 @@
 		(mailbox canvas)
 		,message)
 	       (setf *visual-canvas* canvas)
-	       (ns:window-show window))))
+	       (ns:window-show window)
+	       (ns:enable-foreground))))
 	 (setf (close-fn *visual-canvas*) ,close-fn)))))
 
 
