@@ -349,8 +349,17 @@
 	 	    (window (make-instance 'ns:window
 			      :rect (ns:in-screen-rect (ns:rect 0 1000 (if ,size (first ,size) 720) (if ,size (second ,size) 450)))
 			      :title ,window-name
-			      :close-fn (lambda () (when (close-fn canvas)
-						     (funcall (close-fn canvas)))))))
+			      :close-fn (lambda ()
+					  ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+					  ;; ScreenCaptureKit 에 window 가 최초 한 번 감지되면 retainCount 가 비정상적으로 늘어난다.
+					  ;; 정상일때 4가 나오는데 "SCK 에 스캔되면 5->창을 닫으려는 순간에 45까지 올라간다". 매 번 그러는 것도 아니고 최초 한 번.
+					  ;; 이 경우 수동으로 release 를 주고 있는데 일단 이렇게 하면 해결이 된다.
+					  ;; 더 정상적인 방법이 있는지 모르겠다. macOS 의 버그 일지도 모름.
+					  ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+					  (when (= (ns:retain-count (window *visual-canvas*)) 45)
+					    (ns:release (window *visual-canvas*))) 
+					  (when (close-fn canvas)
+					    (funcall (close-fn canvas)))))))
 	       (ns:objc canvas "setWantsBestResolutionOpenGLSurface:" :bool (retina canvas))
 	       (setf (ns:content-view window) canvas)
 	       (setf (window canvas) window)

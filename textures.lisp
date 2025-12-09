@@ -7,8 +7,9 @@
   (when (tex :info)
     (uiop:println (tex :tex-id))))
 
-
+;; 
 ;; previous frame
+;; 
 (defmethod init-texture-device (view (device (eql :previous-frame)) texture-device)
   (declare (ignorable view texture-device))
   (let ((texture (gl:gen-texture))
@@ -324,6 +325,54 @@
      (lambda ()
        (av:stop-capture device)
        (av:release-capture device)))))
+
+
+
+;;
+;; Capture Frame
+;; 
+(defmethod init-texture-device (view (device (eql :capture-frame)) texture-device)
+  (declare (ignorable view))
+  (let* ((capture nil)
+	 (release-p nil)
+	 (src (tex :src)))
+    (cond ((stringp src) (progn
+			   (setf capture (ns:new "ScreenCapturer"))
+			   (setf release-p t)
+			   (ns:queue-for-event-loop
+			    (lambda ()
+			      (ns:objc capture "startCaptureWindow:" :pointer (ns:make-ns-string src))))))
+	  ((integerp src) (progn
+			    (setf capture (ns:new "ScreenCapturer"))
+			    (setf release-p t)
+			    (ns:objc capture "startCaptureDisplay:" :unsigned-int src)))
+	  ((cffi:pointerp src) (progn
+				 (setf capture src))))
+    (list device
+	  :capture capture
+	  :release-p release-p
+	  :tex-id nil
+	  :target :texture-rectangle)))
+
+
+(defmethod update-texture-device (view (device (eql :capture-frame)) texture-device)
+  (let ((texture-cache (texture-cache view)))
+    (let* ((m-head (ns:objc (tex :capture) "getPixelBuffer" :pointer)))
+      (unless (cffi-sys:null-pointer-p m-head)
+	(let* ((texture-object (core-video:texture-cache-texture texture-cache m-head))
+	       (texture (core-video:texture-name texture-object)))
+          (cl-opengl-bindings:bind-texture :texture-rectangle texture)
+	  (core-video:release-texture texture-object)
+	  (setf (tex :tex-id) texture)
+	  (setf (texture-cache-flush view) t))))))
+
+
+(defmethod release-texture-device (view (device (eql :capture-frame)) texture-device)
+  (declare (ignorable view))
+  (when (tex :release-p)
+    (ns:release (tex :capture))))
+
+
 
 ;;; 
 ;;; syphon
