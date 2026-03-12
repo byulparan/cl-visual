@@ -13,12 +13,27 @@
 	   :pointer))
 
 (defun publish-frame (syphon-server tex-id texture-target region size)
-  (ns:objc syphon-server "publishFrameTexture:textureTarget:imageRegion:textureDimensions:flipped:"
-	   :unsigned-int tex-id
-	   :int texture-target
-	   (:struct ns:rect) region
-	   (:struct ns:size) size
-	   :int 0))
+  (ns::with-sb-alien-rect (region region)
+    (sb-alien:with-alien ((%size (sb-alien:struct ns:size)))
+      (setf (sb-alien:slot %size 'ns:width) (float (ns:size-width size) 1.0d0)
+	    (sb-alien:slot %size 'ns:height) (float (ns:size-height size) 1.0d0))
+      (sb-alien:alien-funcall
+       (sb-alien:extern-alien "objc_msgSend" (sb-alien:function sb-alien:void
+								sb-alien:system-area-pointer
+								sb-alien:system-area-pointer
+								sb-alien:unsigned-int
+								sb-alien:int
+								(sb-alien:struct ns:rect)
+								(sb-alien:struct ns:size)
+								sb-alien:int))
+       (ns::cocoa-ref syphon-server)
+       (ns:sel "publishFrameTexture:textureTarget:imageRegion:textureDimensions:flipped:")
+       tex-id
+       texture-target
+       region
+       %size
+       0))))
+
 
 (defun stop-server (syphon-server)
   (ns:objc syphon-server "stop"))
@@ -76,7 +91,15 @@
   (ns:objc syphon-image "textureName" :unsigned-int))
 
 (defun texture-size (syphon-image)
-  (ns:objc syphon-image "textureSize" (:struct ns:size)))
+  (let* ((%size
+	   (sb-alien:alien-funcall
+	    (sb-alien:extern-alien "objc_msgSend" (sb-alien:function (sb-alien:struct ns:size)
+								     sb-alien:system-area-pointer
+								     sb-alien:system-area-pointer))
+	    (ns::cocoa-ref syphon-image)
+	    (ns:sel "textureSize"))))
+    (ns:size (sb-alien:slot %size 'ns:width)
+	     (sb-alien:slot %size 'ns:height))))
 
 (defun stop-client (syphon-client)
   (ns:objc syphon-client "stop"))

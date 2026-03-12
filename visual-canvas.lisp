@@ -121,11 +121,19 @@
 
 
 (defun convert-size-to-backing (visual-canvas)
-  (let* ((best-size (ns:objc visual-canvas "convertSizeToBacking:"
-			     (:struct ns:size) (ns:size (ns:width visual-canvas)
-							(ns:height visual-canvas))
-			     (:struct ns:size))))
-    (list (ns:size-width best-size) (ns:size-height best-size))))
+  (let* ((best-size (sb-alien:with-alien ((%size (sb-alien:struct ns:size)))
+		      (setf (sb-alien:slot %size 'ns:width) (float (ns:width visual-canvas) 1.0d0)
+			    (sb-alien:slot %size 'ns:height) (float (ns:height visual-canvas) 1.0d0))
+		      (sb-alien:alien-funcall
+		       (sb-alien:extern-alien "objc_msgSend" (sb-alien:function (sb-alien:struct ns:size)
+										sb-alien:system-area-pointer
+										sb-alien:system-area-pointer
+										(sb-alien:struct ns:size)))
+		       (ns::cocoa-ref visual-canvas)
+		       (ns:sel "convertSizeToBacking:")
+		       %size))))
+    (list (sb-alien:slot best-size 'ns:width)
+	  (sb-alien:slot best-size 'ns:height))))
 
 (defmethod ns:reshape ((view visual-canvas))
   (gl:clear-color .0 .0 .0 1.0)
@@ -326,16 +334,30 @@
 					       :pointer (ns:autorelease (ns:make-ns-string ,window-name)))
 				      (when (and ,size (not (ns:objc (cl-visual::window cl-visual::*visual-canvas*) "isFullscreen" :bool)))
 					(let* ((window (window *visual-canvas*))
-					       (frame #+x86-64 (ns:objc-stret ns:rect window "frame")
-						      #+arm64 (ns:objc window "frame" (:struct ns:rect))))
-					  (ns:objc (window *visual-canvas*) "setFrame:display:"
-						   (:struct ns:rect) (ns:rect (ns:rect-x frame)
-									      (+ (ns:rect-y frame)
-										 (- (ns:rect-height frame)
-										    (+ 28 (second ,size))))
-									      (first ,size)
-									      (+ 28 (second ,size)))
-						   :int 0)))))
+					       (%frame (sb-alien:alien-funcall
+							(sb-alien:extern-alien "objc_msgSend" (sb-alien:function (sb-alien:struct ns:rect)
+														 sb-alien:system-area-pointer
+														 sb-alien:system-area-pointer))
+							(ns::cocoa-ref window)
+							(ns:sel "frame")))
+					       (%origin (sb-alien:slot %frame 'ns::origin))
+					       (%size (sb-alien:slot %frame 'ns::size)))
+					  (ns::with-sb-alien-rect (rect (ns:rect (sb-alien:slot %origin 'ns::x)
+										 (+ (sb-alien:slot %origin 'ns::y)
+										    (- (sb-alien:slot %size 'ns:height)
+										       (+ 28 (second ,size))))
+										 (first ,size)
+										 (+ 28 (second ,size))))
+					    (sb-alien:alien-funcall
+					     (sb-alien:extern-alien "objc_msgSend" (sb-alien:function sb-alien:void
+												      sb-alien:system-area-pointer
+												      sb-alien:system-area-pointer
+												      (sb-alien:struct ns:rect)
+												      sb-alien:int))
+					     (ns::cocoa-ref (window *visual-canvas*))
+					     (ns:sel "setFrame:display:")
+					     rect
+					     0))))))
 	   (ns:with-event-loop (:waitp t)
 	     (let* ((renderer (make-instance 'visual-renderer :reinit-time ,reinit-time
 	 				     :core-profile t))
