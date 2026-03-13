@@ -91,13 +91,14 @@
   (ns:objc syphon-image "textureName" :unsigned-int))
 
 (defun texture-size (syphon-image)
-  (let* ((%size
-	   (sb-alien:alien-funcall
-	    (sb-alien:extern-alien "objc_msgSend" (sb-alien:function (sb-alien:struct ns:size)
-								     sb-alien:system-area-pointer
-								     sb-alien:system-area-pointer))
-	    (ns::cocoa-ref syphon-image)
-	    (ns:sel "textureSize"))))
+  (sb-alien:with-alien ((%size (sb-alien:struct ns:size)))
+    (sb-alien:alien-funcall-into
+     (sb-alien:extern-alien "objc_msgSend" (sb-alien:function (sb-alien:struct ns:size)
+							      sb-alien:system-area-pointer
+							      sb-alien:system-area-pointer))
+     (sb-alien:alien-sap %size)
+     (ns::cocoa-ref syphon-image)
+     (ns:sel "textureSize"))
     (ns:size (sb-alien:slot %size 'ns:width)
 	     (sb-alien:slot %size 'ns:height))))
 

@@ -121,17 +121,19 @@
 
 
 (defun convert-size-to-backing (visual-canvas)
-  (let* ((best-size (sb-alien:with-alien ((%size (sb-alien:struct ns:size)))
-		      (setf (sb-alien:slot %size 'ns:width) (float (ns:width visual-canvas) 1.0d0)
-			    (sb-alien:slot %size 'ns:height) (float (ns:height visual-canvas) 1.0d0))
-		      (sb-alien:alien-funcall
-		       (sb-alien:extern-alien "objc_msgSend" (sb-alien:function (sb-alien:struct ns:size)
-										sb-alien:system-area-pointer
-										sb-alien:system-area-pointer
-										(sb-alien:struct ns:size)))
-		       (ns::cocoa-ref visual-canvas)
-		       (ns:sel "convertSizeToBacking:")
-		       %size))))
+  (sb-alien:with-alien ((best-size (sb-alien:struct ns:size))
+			(canvas-size (sb-alien:struct ns:size)))
+    (setf (sb-alien:slot canvas-size 'ns:width) (float (ns:width visual-canvas) 1.0d0)
+	  (sb-alien:slot canvas-size 'ns:height) (float (ns:height visual-canvas) 1.0d0))
+    (sb-alien:alien-funcall-into
+     (sb-alien:extern-alien "objc_msgSend" (sb-alien:function (sb-alien:struct ns:size)
+							      sb-alien:system-area-pointer
+							      sb-alien:system-area-pointer
+							      (sb-alien:struct ns:size)))
+     (sb-alien:alien-sap best-size)
+     (ns::cocoa-ref visual-canvas)
+     (ns:sel "convertSizeToBacking:")
+     canvas-size)
     (list (sb-alien:slot best-size 'ns:width)
 	  (sb-alien:slot best-size 'ns:height))))
 
@@ -333,31 +335,33 @@
 				      (ns:objc (window *visual-canvas*) "setTitle:"
 					       :pointer (ns:autorelease (ns:make-ns-string ,window-name)))
 				      (when (and ,size (not (ns:objc (cl-visual::window cl-visual::*visual-canvas*) "isFullscreen" :bool)))
-					(let* ((window (window *visual-canvas*))
-					       (%frame (sb-alien:alien-funcall
-							(sb-alien:extern-alien "objc_msgSend" (sb-alien:function (sb-alien:struct ns:rect)
-														 sb-alien:system-area-pointer
-														 sb-alien:system-area-pointer))
-							(ns::cocoa-ref window)
-							(ns:sel "frame")))
-					       (%origin (sb-alien:slot %frame 'ns::origin))
-					       (%size (sb-alien:slot %frame 'ns::size)))
-					  (ns::with-sb-alien-rect (rect (ns:rect (sb-alien:slot %origin 'ns::x)
-										 (+ (sb-alien:slot %origin 'ns::y)
-										    (- (sb-alien:slot %size 'ns:height)
-										       (+ 28 (second ,size))))
-										 (first ,size)
-										 (+ 28 (second ,size))))
-					    (sb-alien:alien-funcall
-					     (sb-alien:extern-alien "objc_msgSend" (sb-alien:function sb-alien:void
+					(let* ((window (window *visual-canvas*)))
+					  (sb-alien:with-alien ((%frame (sb-alien:struct ns:rect)))
+					    (sb-alien:alien-funcall-into
+					     (sb-alien:extern-alien "objc_msgSend" (sb-alien:function (sb-alien:struct ns:rect)
 												      sb-alien:system-area-pointer
-												      sb-alien:system-area-pointer
-												      (sb-alien:struct ns:rect)
-												      sb-alien:int))
-					     (ns::cocoa-ref (window *visual-canvas*))
-					     (ns:sel "setFrame:display:")
-					     rect
-					     0))))))
+												      sb-alien:system-area-pointer))
+					     (sb-alien:alien-sap %frame)
+					     (ns::cocoa-ref window)
+					     (ns:sel "frame"))
+					    (let ((%origin (sb-alien:slot %frame 'ns::origin))
+						  (%size (sb-alien:slot %frame 'ns::size)))
+					      (ns::with-sb-alien-rect (rect (ns:rect (sb-alien:slot %origin 'ns::x)
+										     (+ (sb-alien:slot %origin 'ns::y)
+											(- (sb-alien:slot %size 'ns:height)
+											   (+ 28 (second ,size))))
+										     (first ,size)
+										     (+ 28 (second ,size))))
+						(sb-alien:alien-funcall
+						 (sb-alien:extern-alien "objc_msgSend" (sb-alien:function sb-alien:void
+													  sb-alien:system-area-pointer
+													  sb-alien:system-area-pointer
+													  (sb-alien:struct ns:rect)
+													  sb-alien:int))
+						 (ns::cocoa-ref (window *visual-canvas*))
+						 (ns:sel "setFrame:display:")
+						 rect
+						 0))))))))
 	   (ns:with-event-loop (:waitp t)
 	     (let* ((renderer (make-instance 'visual-renderer :reinit-time ,reinit-time
 	 				     :core-profile t))
