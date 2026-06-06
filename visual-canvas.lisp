@@ -442,7 +442,7 @@
     t))
 
 (defun gfx::camera-info (&optional (camera (camera (renderer *visual-canvas*))))
-  (appned (gfx:camera-position camera)
+  (append (gfx:camera-position camera)
 	  (gfx:camera-target camera)
 	  (list (gfx::up-x camera) (gfx::up-y camera) (gfx::up-z camera))))
 
