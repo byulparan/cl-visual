@@ -349,9 +349,9 @@
 					      (ns::with-sb-alien-rect (rect (ns:rect (sb-alien:slot %origin 'ns::x)
 										     (+ (sb-alien:slot %origin 'ns::y)
 											(- (sb-alien:slot %size 'ns:height)
-											   (+ 28 (second ,size))))
+											   (+ 32 (second ,size))))
 										     (first ,size)
-										     (+ 28 (second ,size))))
+										     (+ 32 (second ,size))))
 						(sb-alien:alien-funcall
 						 (sb-alien:extern-alien "objc_msgSend" (sb-alien:function sb-alien:void
 													  sb-alien:system-area-pointer
