@@ -112,6 +112,8 @@
 	   (incf col lighting)
 	   col)))))
 
+(export 'build-light)
+
 (define-function-library post-bloom ((texture :sampler-2d-rect) (size :float) (sigma :float) (horizon :int)
 				     (uv :vec2) (resolution :vec2))
   (let* ((num-blur (/ size 1.0))
