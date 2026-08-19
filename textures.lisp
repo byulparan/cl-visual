@@ -817,6 +817,7 @@
 	 (height (height view))
 	 (renderer (make-instance 'renderer :width width :height height :core-profile core-profile))
 	 (surface (make-instance 'shader-surface :width width :height height
+				 :texture-devices nil
 				 :renderer renderer))
 	 (src (tex :src)))
     (resize-framebuffer renderer width height)
@@ -824,6 +825,8 @@
       (let* ((fbo (if (tex :multisample) (fbo renderer)
 		    (gfx::output-fbo (fbo renderer)))))
 	(gfx:with-fbo (fbo)
+	  (setf (texture-cache surface) (core-video:make-texture-cache (cgl-context surface) (pixel-format surface)))
+
 	  (setf src (init-texture-device surface (car src) (cdr src))))))
     (gl:bind-texture target texture)
     (cgl:tex-image-io-surface-2d (cgl-context view) target
@@ -864,21 +867,25 @@
 	(gfx:with-fbo (fbo)
 	  (gl:active-texture :texture0)
 	  (update-texture-device surface (car src) (cdr src))
-	  (let* ((texture (getf (cdr src) :tex-id))
-		 (fixed-size (getf (cdr src) :fixed-size))
-		 (ci-image (ci:image-from-texture texture (apply #'ns:size (if fixed-size fixed-size (list width height)))))
-		 (rect (ns:rect 0 0 width height)))
-	    (dolist (filter (tex :output-filter))
-	      (setf ci-image (ci:apply-filter filter ci-image)))
-	    (gl:viewport 0 0 width height)
-	    (gl:matrix-mode :projection)
-	    (gl:load-identity)
-	    (gl:ortho 0 width 0 height -100.0 100.0)
-	    (gl:matrix-mode :modelview)
-	    (gl:load-identity)
-	    (ci:draw-image (tex :ci-context) ci-image rect 
-			   (if fixed-size (ns:rect 0 0 (first fixed-size) (second fixed-size)) rect))
-	    (gl:flush)))))))
+	  (let* ((texture (getf (cdr src) :tex-id)))
+	    (when texture
+	      (let* ((fixed-size (getf (cdr src) :fixed-size))
+		     (ci-image (ci:image-from-texture texture (apply #'ns:size (if fixed-size fixed-size (list width height)))))
+		     (rect (ns:rect 0 0 width height)))
+		(dolist (filter (tex :output-filter))
+		  (setf ci-image (ci:apply-filter filter ci-image)))
+		(gl:viewport 0 0 width height)
+		(gl:matrix-mode :projection)
+		(gl:load-identity)
+		(gl:ortho 0 width 0 height -100.0 100.0)
+		(gl:matrix-mode :modelview)
+		(gl:load-identity)
+		(ci:draw-image (tex :ci-context) ci-image rect 
+			       (if fixed-size (ns:rect 0 0 (first fixed-size) (second fixed-size)) rect))
+		(gl:flush))))
+	  (when (texture-cache-flush surface)
+	    (core-video:texture-cache-flush (texture-cache surface) 0)
+	    (setf (texture-cache-flush surface) nil)))))))
 
 
 
@@ -891,6 +898,7 @@
       (let* ((fbo (if (tex :multisample) (fbo renderer)
 		    (gfx::output-fbo (fbo renderer)))))
 	(gfx:with-fbo (fbo)
+	  (core-video:release-texture-cache (texture-cache surface))
 	  (release-texture-device surface (car src) (cdr src)))))
     (release renderer)
     (ns:release (tex :ci-context))
