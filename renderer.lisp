@@ -3,12 +3,16 @@
 (defclass renderer ()
   ((cgl-context
     :reader cgl-context)
+   (pixel-format
+    :reader pixel-format)
    (core-profile
     :initarg :core-profile
     :initform t
     :reader core-profile)
-   (pixel-format
-    :reader pixel-format)
+   (gl-format
+    :initarg :format
+    :initform :rgba8
+    :reader gl-format)
    (iosurface
     :initform nil
     :accessor iosurface)
@@ -35,23 +39,29 @@
 (defmethod resize-framebuffer ((renderer renderer) width height)
   (setf (width renderer) width
 	(height renderer) height)
-  (let* ((cgl-context (cgl-context renderer)))
+  (let* ((cgl-context (cgl-context renderer))
+	 (gl-format (gl-format renderer)))
     (with-cgl-context (cgl-context)
       (when (iosurface renderer) (ns:release (iosurface renderer)))
-      (setf (iosurface renderer) (io-surface:make-surface width height))
+      (setf (iosurface renderer) (io-surface:make-surface width height :pixel-format (if (eql gl-format :rgba8) "ARGB" "RGfA")))
       (unless (texture renderer) (setf (texture renderer) (gl:gen-texture)))
       (gl:bind-texture :texture-rectangle (texture renderer))
-      (cgl:tex-image-io-surface-2d cgl-context :texture-rectangle :rgba width height :bgra :unsigned-int-8-8-8-8-rev
-				   (iosurface renderer) 0)
+      (if (eql gl-format :rgba8)
+	  (cgl:tex-image-io-surface-2d cgl-context :texture-rectangle :rgba width height :bgra :unsigned-int-8-8-8-8-rev
+				       (iosurface renderer) 0)
+	(cgl:tex-image-io-surface-2d cgl-context :texture-rectangle :rgba32f width height :rgba :float
+				     (iosurface renderer) 0))
       (gl:bind-texture :texture-rectangle 0)
       (if (not (fbo renderer)) (setf (fbo renderer) (gfx:make-fbo width height
 								  :multisample t
 								  :texture (texture renderer)
-								  :target :texture-rectangle))
+								  :target :texture-rectangle
+								  :format gl-format))
 	(gfx:reinit-fbo (fbo renderer) width height)))))
 
 
 (defmethod initialize-instance :after ((instance renderer) &key)
+  (assert (find (gl-format instance) '(:rgba8 :rgba32f)) nil "Renderer Support only :rgba8 and :rgba32f")
   (let* ((%pixel-format (cgl:make-pixel-format (cgl:list-attributes :core-profile (core-profile instance))))
   	 (%cgl-context (cgl:make-context %pixel-format)))
     (with-slots (cgl-context pixel-format) instance

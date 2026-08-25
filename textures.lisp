@@ -464,10 +464,13 @@
   (gl:delete-texture (tex :tex-id)))
 
 
-;;
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;; io-surface
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+
 (defvar *io-surface-table* (make-hash-table))
 
-;;; io-surface
 (defmethod init-texture-device (view (device (eql :io-surface)) texture-device)
   (let* ((src (tex :src))
 	 (io-surface (gethash src *io-surface-table*)))
@@ -475,16 +478,22 @@
       (let* ((texture (gl:gen-texture))
 	     (target :texture-rectangle)
 	     (width (io-surface:width io-surface))
-	     (height (io-surface:height io-surface)))
+	     (height (io-surface:height io-surface))
+	     (format (if (tex :format) (tex :format) :rgba8)))
 	(gl:bind-texture target texture)
-	(cgl:tex-image-io-surface-2d (cgl-context view) target
-				     :rgba width height :bgra
-				     :unsigned-int-8-8-8-8-rev io-surface 0)
+	(ecase format
+	  (:rgba8 (cgl:tex-image-io-surface-2d (cgl-context view) target
+					       :rgba width height :bgra
+					       :unsigned-int-8-8-8-8-rev io-surface 0))
+	  (:rgba32f (cgl:tex-image-io-surface-2d (cgl-context view) target
+						 :rgba32f width height :rgba
+						 :float io-surface 0)))
 	(gl:bind-texture target 0)
 	(list device
 	      :src (tex :src)
 	      :tex-id texture
 	      :target target
+	      :format format
 	      :width width
 	      :height height
 	      :info (tex :info))))))
@@ -493,14 +502,20 @@
   (declare (ignore device))
   (let* ((io-surface (gethash (tex :src) *io-surface-table*))
 	 (width (io-surface:width io-surface))
-	 (height (io-surface:height io-surface)))
+	 (height (io-surface:height io-surface))
+	 (format (tex :format)))
     (when (or (/= (tex :width) width)
 	      (/= (tex :height) height))
       (setf (tex :width) width
 	    (tex :height) height)
       (gl:bind-texture (tex :target) (tex :tex-id))
-      (cgl:tex-image-io-surface-2d (cgl-context view) (tex :target) :rgba
-				   width height :bgra :unsigned-int-8-8-8-8-rev io-surface 0)
+      (ecase format
+	(:rgba8 (cgl:tex-image-io-surface-2d (cgl-context view) (tex :target)
+					     :rgba width height :bgra
+					     :unsigned-int-8-8-8-8-rev io-surface 0))
+	(:rgba32f (cgl:tex-image-io-surface-2d (cgl-context view) (tex :target)
+					       :rgba32f width height :rgba
+					       :float io-surface 0)))
       (gl:bind-texture (tex :target) 0))
     (gl:bind-texture (tex :target) (tex :tex-id))))
 
@@ -510,17 +525,21 @@
 
 
 
-;;; gl-canvas
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;; gl-canvas
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+
 (defmethod init-texture-device (view (device (eql :gl-canvas)) texture-device)
   (declare (ignorable device))
   (let* ((core-profile (tex :core-profile))
 	 (texture (gl:gen-texture))
 	 (target :texture-rectangle)
 	 (fixed-size (tex :size))
+	 (format (if (tex :format) (tex :format) :rgba8))
 	 (width (if fixed-size (first (tex :size)) (width view)))
 	 (height (if fixed-size (second (tex :size)) (height view)))
-	 (renderer (make-instance 'renderer :width width :height height :core-profile core-profile))
-	 (fbo nil)
+	 (renderer (make-instance 'renderer :width width :height height :core-profile core-profile
+				  :format format))
 	 (gl-canvas (make-instance (tex :src) :width width :height height
 				   :camera (if (tex :shared-camera) (camera (renderer *visual-canvas*))
 					     (make-instance 'gfx:camera))))
@@ -533,13 +552,18 @@
 	(gfx:with-fbo (fbo)
 	  (gfx:init gl-canvas))))
     (gl:bind-texture target texture)
-    (cgl:tex-image-io-surface-2d (cgl-context view) target
-				 :rgba width height :bgra
-				 :unsigned-int-8-8-8-8-rev (iosurface renderer) 0)
+    (ecase format
+      (:rgba8 (cgl:tex-image-io-surface-2d (cgl-context view) target
+					   :rgba width height :bgra
+					   :unsigned-int-8-8-8-8-rev (iosurface renderer) 0))
+      (:rgba32f (cgl:tex-image-io-surface-2d (cgl-context view) target
+					     :rgba32f width height :rgba
+					     :float (iosurface renderer) 0)))
     (gl:bind-texture target 0)
     (list device
 	  :tex-id texture
 	  :target target
+	  :format format
 	  :renderer renderer
 	  :multisample (tex :multisample)
 	  :gl-canvas gl-canvas
@@ -554,6 +578,7 @@
 	 (renderer (tex :renderer))
 	 (canvas (tex :gl-canvas))
 	 (output (tex :output))
+	 (format (tex :format))
 	 (resize nil))
     (when (and (not (tex :fixed-size))
 	       (or (/= width (width renderer))
@@ -563,9 +588,11 @@
 	(setf (gethash output *io-surface-table*) (iosurface renderer)))
       (setf (gfx:width canvas) width (gfx:height canvas) height)
       (gl:bind-texture (tex :target) (tex :tex-id))
-      (cgl:tex-image-io-surface-2d (cgl-context view) (tex :target)
-				   :rgba width height :bgra
-				   :unsigned-int-8-8-8-8-rev (iosurface renderer) 0)
+      (ecase format
+	(:rgba8 (cgl:tex-image-io-surface-2d (cgl-context view) (tex :target) :rgba width height :bgra
+					     :unsigned-int-8-8-8-8-rev (iosurface renderer) 0))
+	(:rgba32f (cgl:tex-image-io-surface-2d (cgl-context view) (tex :target) :rgba32f width height :rgba
+					       :float (iosurface renderer) 0)))
       (gl:bind-texture (tex :target) 0)
       (setf resize t))
     (gl:bind-texture (tex :target) (tex :tex-id))
@@ -595,7 +622,10 @@
     (gl:delete-texture (tex :tex-id))))
 
 
-;;; shader
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;; shader
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+
 (defclass shader-surface (gfx:gl-canvas)
   ((renderer :initarg :renderer :reader renderer)
    (shader :initarg :shader :reader shader)
@@ -717,7 +747,8 @@
 	 (fixed-size (tex :size))
 	 (width (if fixed-size (first (tex :size)) (width view)))
 	 (height (if fixed-size (second (tex :size)) (height view)))
-	 (renderer (make-instance 'renderer :width width :height height :core-profile core-profile))
+	 (format (if (tex :format) (tex :format) :rgba8))
+	 (renderer (make-instance 'renderer :width width :height height :core-profile core-profile :format format))
 	 (surface (make-instance 'shader-surface :width width :height height
 				 :camera (if (tex :shared-camera) (camera (renderer *visual-canvas*))
 					   (make-instance 'gfx:camera))
@@ -736,9 +767,13 @@
 	(gfx:with-fbo (fbo)
 	  (gfx:init surface))))
     (gl:bind-texture target texture)
-    (cgl:tex-image-io-surface-2d (cgl-context view) target
-				 :rgba width height :bgra
-				 :unsigned-int-8-8-8-8-rev (iosurface renderer) 0)
+    (ecase format
+      (:rgba8 (cgl:tex-image-io-surface-2d (cgl-context view) target
+					   :rgba width height :bgra
+					   :unsigned-int-8-8-8-8-rev (iosurface renderer) 0))
+      (:rgba32f (cgl:tex-image-io-surface-2d (cgl-context view) target
+					     :rgba32f width height :rgba
+					     :float (iosurface renderer) 0)))
     (gl:bind-texture target 0)
     (list device
 	  :src (tex :src)
@@ -746,6 +781,7 @@
 	  :target target
 	  :surface surface
 	  :multisample (tex :multisample)
+	  :format format
 	  :fixed-size fixed-size
 	  :output output
 	  :info (tex :info))))
@@ -756,7 +792,8 @@
   	 (height (height view))
   	 (surface (tex :surface))
 	 (renderer (renderer surface))
-	 (output (tex :output)))
+	 (output (tex :output))
+	 (format (tex :format)))
     (when (and (not (tex :fixed-size))
 	       (or (/= width (width renderer))
 		   (/= height (height renderer))))
@@ -765,9 +802,11 @@
 	(setf (gethash output *io-surface-table*) (iosurface renderer)))
       (setf (gfx:width surface) width (gfx:height surface) height)
       (gl:bind-texture (tex :target) (tex :tex-id))
-      (cgl:tex-image-io-surface-2d (cgl-context view) (tex :target)
-				   :rgba width height :bgra
-				   :unsigned-int-8-8-8-8-rev (iosurface renderer) 0)
+      (ecase format
+	(:rgba8 (cgl:tex-image-io-surface-2d (cgl-context view) (tex :target) :rgba width height :bgra
+					     :unsigned-int-8-8-8-8-rev (iosurface renderer) 0))
+	(:rgba32f (cgl:tex-image-io-surface-2d (cgl-context view) (tex :target) :rgba32f width height :rgba
+					       :float (iosurface renderer) 0)))
       (gl:bind-texture (tex :target) 0)
       (setf (resize-p surface) t))
     (gl:bind-texture (tex :target) (tex :tex-id))
@@ -805,17 +844,20 @@
 
 
 
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;; ci-filter
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
-;;; ci-filter
 ;; shader-surface 는 사실 필요 없지만 width, height, renderer 등의 기본적인 정보를 texture source 에 전달하기 위해 유지.
 (defmethod init-texture-device (view (device (eql :ci-filter)) texture-device)
   (declare (ignorable device))
   (let* ((core-profile nil)
 	 (texture (gl:gen-texture))
 	 (target :texture-rectangle)
+	 (format (if (tex :format) (tex :format) :rgba8))
 	 (width (width view))
 	 (height (height view))
-	 (renderer (make-instance 'renderer :width width :height height :core-profile core-profile))
+	 (renderer (make-instance 'renderer :width width :height height :core-profile core-profile :format format))
 	 (surface (make-instance 'shader-surface :width width :height height
 				 :texture-devices nil
 				 :renderer renderer))
@@ -826,18 +868,22 @@
 		    (gfx::output-fbo (fbo renderer)))))
 	(gfx:with-fbo (fbo)
 	  (setf (texture-cache surface) (core-video:make-texture-cache (cgl-context surface) (pixel-format surface)))
-
 	  (setf src (init-texture-device surface (car src) (cdr src))))))
     (gl:bind-texture target texture)
-    (cgl:tex-image-io-surface-2d (cgl-context view) target
-				 :rgba width height :bgra
-				 :unsigned-int-8-8-8-8-rev (iosurface renderer) 0)
+    (ecase format
+      (:rgba8 (cgl:tex-image-io-surface-2d (cgl-context view) target
+					   :rgba width height :bgra
+					   :unsigned-int-8-8-8-8-rev (iosurface renderer) 0))
+      (:rgba32f (cgl:tex-image-io-surface-2d (cgl-context view) target
+					     :rgba32f width height :rgba
+					     :float (iosurface renderer) 0)))
     (gl:bind-texture target 0)
     (list :ci-filter
 	  :tex-id texture
 	  :ci-context (ci:make-context (cgl-context renderer) (pixel-format renderer))
 	  :output-filter (tex :output-filter)
 	  :target target
+	  :format format
 	  :renderer renderer
 	  :surface surface
 	  :src src
@@ -850,15 +896,18 @@
 	 (height (height view))
 	 (src (tex :src))
 	 (renderer (tex :renderer))
-	 (surface (tex :surface)))
+	 (surface (tex :surface))
+	 (format (tex :format)))
     (when (or (/= width (width renderer))
 	      (/= height (height renderer)))
       (resize-framebuffer renderer width height)
       (setf (gfx:width surface) width (gfx:height surface) height)
       (gl:bind-texture (tex :target) (tex :tex-id))
-      (cgl:tex-image-io-surface-2d (cgl-context view) (tex :target)
-				   :rgba width height :bgra
-				   :unsigned-int-8-8-8-8-rev (iosurface renderer) 0)
+      (ecase format
+	(:rgba8 (cgl:tex-image-io-surface-2d (cgl-context view) (tex :target) :rgba width height :bgra
+					     :unsigned-int-8-8-8-8-rev (iosurface renderer) 0))
+	(:rgba32f (cgl:tex-image-io-surface-2d (cgl-context view) (tex :target) :rgba32f width height :rgba
+					       :float (iosurface renderer) 0)))
       (gl:bind-texture (tex :target) 0))
     (gl:bind-texture (tex :target) (tex :tex-id))
     (with-cgl-context ((cgl-context renderer))
