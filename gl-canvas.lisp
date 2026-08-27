@@ -6,7 +6,8 @@
    (height :initarg :height :accessor height)
    (camera :initarg :camera :reader camera)
    (projection-matrix :accessor projection-matrix)
-   (view-matrix :accessor view-matrix)))
+   (view-matrix :accessor view-matrix)
+   (fbo :initarg :fbo :initform nil :accessor fbo)))
 
 (defmethod init ((view gl-canvas)))
 (defmethod draw ((view gl-canvas)))
@@ -14,6 +15,8 @@
 (defmethod release ((view gl-canvas)))
 
 (defmethod release :after ((view gl-canvas))
+  (when (fbo view)
+    (gfx:release-fbo (fbo view)))
   (gfx:release-environment view))
 
 
