@@ -12,12 +12,12 @@
 						1.0 -1.0 0.0 1.0 0.0
 						1.0 1.0 0.0 1.0 1.0)))
 
-(gfx:defpipeline draw-fbo ((ichannel0 :sampler-2d))
+(gfx:defpipeline draw-fbo ((ichannel0 :sampler-2d-rect))
   (:vertex (:in ((pos :vec3) (coord :vec2)))
 	   (setf v-coord coord)
 	   (v! pos 1.0))
   (:fragment (:in ((v-coord :vec2)))
-	     (texture ichannel0 v-coord)))
+	     (texture ichannel0 (* v-coord (texture-size ichannel0)))))
 
 
 ;;; GL-Canvas

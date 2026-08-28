@@ -56,7 +56,7 @@
 
 (define-macro-library with-hybrid ((uv &optional (rd 'rd) (ro 'rd) (scene-depth 'scene-depth) (uvn 'uvn)) &body body)
   `(with-uv (,uv ,uvn)
-     (let* ((raw-depth (x (texture depth-texture ,uvn)))
+     (let* ((raw-depth (x (texture depth-texture (* ,uvn (texture-size depth-texture)))))
 	    (inv-proj (inverse projection-matrix))
 	    (inv-view (inverse view-matrix))
 	    (ndc-z (- (* 2.0 raw-depth) 1.0))
