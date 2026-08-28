@@ -54,7 +54,7 @@
        (with-camera (,rd-var ,uv-var ,(car ro) ,(car ta) (v! .0 1.0 .0) ,dist)
 	 ,@body))))
 
-(define-macro-library with-hybrid ((uv rd ro scene-depth &optional (uvn 'uvn)) &body body)
+(define-macro-library with-hybrid ((uv &optional (rd 'rd) (ro 'rd) (scene-depth 'scene-depth) (uvn 'uvn)) &body body)
   `(with-uv (,uv ,uvn)
      (let* ((raw-depth (x (texture depth-texture ,uvn)))
 	    (inv-proj (inverse projection-matrix))
