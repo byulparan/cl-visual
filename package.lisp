@@ -45,7 +45,7 @@
 	   #:view-matrix
 	   #:imouse
 	   #:vfuv
-
+	   #:depth-texture
 	   #:*visual-canvas*))
 
 (defpackage :ftgl

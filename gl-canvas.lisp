@@ -1,5 +1,25 @@
 (in-package :gfx)
 
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;; draw-fbo
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+
+(defvar *fbo-stream* (gfx:make-gpu-stream '((pos :vec3) (coord :vec2))
+					  (list -1.0 -1.0 0.0 0.0 0.0
+						1.0 -1.0 0.0 1.0 0.0
+						-1.0 1.0  0.0 0.0 1.0
+						-1.0 1.0  0.0 0.0 1.0
+						1.0 -1.0 0.0 1.0 0.0
+						1.0 1.0 0.0 1.0 1.0)))
+
+(gfx:defpipeline draw-fbo ((ichannel0 :sampler-2d))
+  (:vertex (:in ((pos :vec3) (coord :vec2)))
+	   (setf v-coord coord)
+	   (v! pos 1.0))
+  (:fragment (:in ((v-coord :vec2)))
+	     (texture ichannel0 v-coord)))
+
+
 ;;; GL-Canvas
 (defclass gl-canvas (shader-environment)
   ((width :initarg :width :accessor width)

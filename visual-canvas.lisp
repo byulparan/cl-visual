@@ -296,6 +296,7 @@
 		  collect (list (intern (format nil "IVOLUME~d" i)) :float))
 	  ,@(loop for i from 0 below *num-icontrol*
 		  collect (list (intern (format nil "ICONTROL~d" i)) :float))
+	  (depth-texture :sampler-2d)
 	  (iresolution :vec2)
 	  (camera :vec3)
 	  (lookat :vec3)
@@ -317,14 +318,14 @@
 						     (lambda () (- (gfx:get-internal-seconds) cur-time))))
 				      size (scene-ratio 1) user-fn close-fn (use-mouse t)
 				      syphon output-filter retina
-				      (info t) gl-canvas multisample)
+				      (info t) gl-canvas)
   (with-gensyms (window-name message)
     (once-only (size)
       `(let* ((,window-name (format nil "~a" ',shader))
 	      (,message (list :shader ',shader
 			      :textures ,textures
 			      :scene-ratio ,scene-ratio :user-fn ,user-fn :syphon ,syphon :output-filter ,output-filter
-			      :retina ,retina :info ,info :gl-canvas ,gl-canvas :multisample ,multisample)))
+			      :retina ,retina :info ,info :gl-canvas ,gl-canvas)))
 	 (assert (gethash ',shader gfx::*all-pipeline-table*) nil "can't find \"~a\" shader" ',shader)
 	 (if *visual-canvas* (progn (#+sbcl send-message
 				     #-sbcl mailbox-send-message
