@@ -114,6 +114,9 @@
    (gl-canvas
     :initform nil
     :accessor gl-canvas)
+   (post-raymarch
+    :initform nil
+    :accessor post-raymarch)
    (imouse
     :initform (list 0.0 0.0 0.0)
     :accessor imouse)))
@@ -206,6 +209,7 @@
     (when-let ((canvas (gl-canvas renderer)))
       (gfx:release canvas))
     (setf (gl-canvas renderer) nil)
+    (setf (post-raymarch renderer) (getf options :post-raymarch))
     (when-let ((canvas (getf options :gl-canvas)))
       (setf (gl-canvas renderer) (make-instance canvas :camera (camera renderer)
 						:width (width renderer) :height (height renderer)
@@ -213,6 +217,38 @@
 								   :multisample t :use-depth-texture-p t)))
       (gfx:init (gl-canvas renderer)))))
 
+
+
+(defun draw-raymarching (renderer time w h)
+  (gfx:with-shader (renderer (shader renderer) (gpu-stream renderer))
+    #.`(progn ,@(loop for i from 0 below 8
+		      collect `(gfx:set-uniform ',(intern (format nil "ICHANNEL~d" i)) ,i))
+	      ,@(loop for i from 0 below *num-ivolume*
+		      collect `(gfx:set-uniform ',(intern (format nil "IVOLUME~d" i))
+						(funcall *visual-volume-function* ,i)))
+	      ,@(loop for i from 0 below *num-icontrol*
+		      collect `(gfx:set-uniform ',(intern (format nil "ICONTROL~d" i))
+						(funcall *visual-control-function* ,i))))
+    (when-let ((canvas (gl-canvas renderer)))
+      (gl:active-texture :texture8)
+      (gl:bind-texture :texture-2d (gfx:depth-texture (gfx::fbo canvas)))
+      (gfx:set-uniform 'depth-texture 8))
+    (gfx:set-uniform 'iglobal-time time)
+    (gfx:set-uniform 'itime time)
+    (gfx:set-uniform 'iresolution (list w h))
+    (gfx:set-uniform 'camera (gfx:camera-position (camera renderer)))
+    (gfx:set-uniform 'lookat (gfx:camera-target (camera renderer)))
+    (gfx:set-uniform 'projection-matrix (projection-matrix renderer))
+    (gfx:set-uniform 'view-matrix (view-matrix renderer))
+    (gfx:set-uniform 'imouse (imouse renderer))
+    (gl:draw-arrays :triangles 0 6)))
+
+(defun draw-rasterize (renderer canvas)
+  (gfx:with-shader (renderer 'gfx::draw-fbo gfx::*fbo-stream*)
+    (gl:active-texture :texture0)
+    (gl:bind-texture :texture-2d (gfx:output-texture (gfx::fbo canvas)))
+    (gfx:set-uniform 'ichannel0 0)
+    (gl:draw-arrays :triangles 0 (gfx:gpu-stream-length gfx::*fbo-stream*))))
 
 
 (defun draw-shader (renderer w h update-size)
@@ -224,38 +260,21 @@
 	      (gfx:view-matrix canvas) (view-matrix renderer))
 	(when update-size
 	  (gfx:reshape canvas))
-	(gfx:draw canvas))
-      (gl:disable :depth-test)
-      (gl:disable :blend)
-      (gfx:with-shader (renderer 'gfx::draw-fbo gfx::*fbo-stream*)
-	(gl:active-texture :texture0)
-	(gl:bind-texture :texture-2d (gfx:output-texture (gfx::fbo canvas)))
-	(gfx:set-uniform 'ichannel0 0)
-	(gl:draw-arrays :triangles 0 (gfx:gpu-stream-length gfx::*fbo-stream*)))
-      (gl:enable :blend)
-      (gl:blend-func :src-alpha :one-minus-src-alpha))
-    (gfx:with-shader (renderer (shader renderer) (gpu-stream renderer))
-      #.`(progn ,@(loop for i from 0 below 8
-		      collect `(gfx:set-uniform ',(intern (format nil "ICHANNEL~d" i)) ,i))
-		,@(loop for i from 0 below *num-ivolume*
-			collect `(gfx:set-uniform ',(intern (format nil "IVOLUME~d" i))
-						  (funcall *visual-volume-function* ,i)))
-		,@(loop for i from 0 below *num-icontrol*
-			collect `(gfx:set-uniform ',(intern (format nil "ICONTROL~d" i))
-						  (funcall *visual-control-function* ,i))))
+	(gfx:draw canvas)))
+    (gl:disable :depth-test)
+    (gl:disable :blend)
+    (if (post-raymarch renderer)
+	(when-let ((canvas (gl-canvas renderer)))
+	  (draw-rasterize renderer canvas))
+      (draw-raymarching renderer time w h))
+    (gl:enable :depth-test)
+    (gl:enable :blend)
+    (gl:blend-func :src-alpha :one-minus-src-alpha)
+    (if (post-raymarch renderer)
+	(draw-raymarching renderer time w h)
       (when-let ((canvas (gl-canvas renderer)))
-	(gl:active-texture :texture8)
-	(gl:bind-texture :texture-2d (gfx:depth-texture (gfx::fbo canvas)))
-	(gfx:set-uniform 'depth-texture 8))
-      (gfx:set-uniform 'iglobal-time time)
-      (gfx:set-uniform 'itime time)
-      (gfx:set-uniform 'iresolution (list w h))
-      (gfx:set-uniform 'camera (gfx:camera-position (camera renderer)))
-      (gfx:set-uniform 'lookat (gfx:camera-target (camera renderer)))
-      (gfx:set-uniform 'projection-matrix (projection-matrix renderer))
-      (gfx:set-uniform 'view-matrix (view-matrix renderer))
-      (gfx:set-uniform 'imouse (imouse renderer))
-      (gl:draw-arrays :triangles 0 6))))
+	(draw-rasterize renderer canvas)))))
+
 
 (defun render (renderer update-size)
   (with-cgl-context ((cgl-context renderer))
