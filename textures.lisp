@@ -31,7 +31,7 @@
 	 (h (height view)))
     (when (or (/= w (tex :width))
 	      (/= h (tex :height)))
-      (gfx:with-fbo ((gfx::output-fbo (fbo view)))
+      (gfx:with-fbo ((fbo view))
 	(gl:copy-tex-image-2d (tex :target) 0 :rgba8 0 0 w h 0))
       (setf (tex :width) w  (tex :height) h))))
 
@@ -539,7 +539,7 @@
 	 (width (if fixed-size (first (tex :size)) (width view)))
 	 (height (if fixed-size (second (tex :size)) (height view)))
 	 (renderer (make-instance 'renderer :width width :height height :core-profile core-profile
-				  :format format))
+				  :format format :multisample t))
 	 (gl-canvas (make-instance (tex :src) :width width :height height
 				   :camera (if (tex :shared-camera) (camera (renderer *visual-canvas*))
 					     (make-instance 'gfx:camera))))
@@ -548,7 +548,7 @@
     (when output
       (setf (gethash output *io-surface-table*) (iosurface renderer)))
     (with-cgl-context ((cgl-context renderer))
-      (let ((fbo (if (tex :multisample) (fbo renderer) (gfx::output-fbo (fbo renderer)))))
+      (let ((fbo (fbo renderer)))
 	(gfx:with-fbo (fbo)
 	  (gfx:init gl-canvas))))
     (gl:bind-texture target texture)
@@ -565,7 +565,6 @@
 	  :target target
 	  :format format
 	  :renderer renderer
-	  :multisample (tex :multisample)
 	  :gl-canvas gl-canvas
 	  :fixed-size fixed-size
 	  :output output
@@ -597,7 +596,7 @@
       (setf resize t))
     (gl:bind-texture (tex :target) (tex :tex-id))
     (with-cgl-context ((cgl-context renderer))
-      (let* ((fbo (if (tex :multisample) (fbo renderer) (gfx::output-fbo (fbo renderer)))))
+      (let* ((fbo (fbo renderer)))
 	(gfx:with-fbo (fbo)
 	  (setf (gfx:projection-matrix canvas) (kit.math:perspective-matrix 45.0 (/ width height) .1 10000.0)
 		(gfx:view-matrix canvas) (gfx:look-at (gfx:camera canvas)))
@@ -613,7 +612,7 @@
 	 (canvas (tex :gl-canvas))
 	 (output (tex :output)))
     (with-cgl-context ((cgl-context renderer))
-      (let* ((fbo (if (tex :multisample) (fbo renderer) (gfx::output-fbo (fbo renderer)))))
+      (let* ((fbo (fbo renderer)))
 	(gfx:with-fbo (fbo)
 	  (gfx:release canvas))))
     (when output
@@ -631,6 +630,8 @@
    (shader :initarg :shader :reader shader)
    (texture-devices :initarg :texture-devices :accessor texture-devices)
    (gl-canvas :initarg :gl-canvas :accessor gl-canvas)
+   (format :initarg :format :initform :rgba8 :reader gl-format)
+   (post-raymarch :initarg :post-raymarch :reader post-raymarch)
    (user-fn :initarg :user-fn :reader user-fn)
    (resize-p :initform nil :accessor resize-p)
    (texture-cache
@@ -663,9 +664,46 @@
 	(gfx::compile-pipeline pipeline))
       (when (gl-canvas view)
 	(setf (gl-canvas view) (make-instance (gl-canvas view) :width (gfx:width view) :height (gfx:height view)
-					      :camera (gfx:camera view)))
+					      :camera (gfx:camera view)
+					      :fbo (gfx:make-fbo (gfx:width view) (gfx:height view)
+								 :target :texture-rectangle
+								 :format (gl-format view)
+								 :multisample t :use-depth-texture-p t)))
 	(gfx:init (gl-canvas view)))
       (setf (texture-cache view) (core-video:make-texture-cache (cgl-context view) (pixel-format view))))))
+
+
+
+(defun draw-raymarching-shader-surface (view time w h)
+  (gfx:with-shader (view (shader view) (gpu-stream (renderer *visual-canvas*)))
+    #.`(progn ,@(loop for i from 0 below 8
+		      collect `(gfx:set-uniform ',(intern (format nil "ICHANNEL~d" i)) ,i))
+	      ,@(loop for i from 0 below *num-ivolume*
+		      collect `(gfx:set-uniform ',(intern (format nil "IVOLUME~d" i))
+						(funcall *visual-volume-function* ,i)))
+	      ,@(loop for i from 0 below *num-icontrol*
+		      collect `(gfx:set-uniform ',(intern (format nil "ICONTROL~d" i))
+						(funcall *visual-control-function* ,i))))
+    (when (gl-canvas view)
+      (gl:active-texture :texture8)
+      (gl:bind-texture :texture-rectangle (gfx:depth-texture (gfx::fbo (gl-canvas view))))
+      (gfx:set-uniform 'depth-texture 8))
+    (gfx:set-uniform 'iglobal-time time)
+    (gfx:set-uniform 'itime time)
+    (gfx:set-uniform 'iresolution (list w h))
+    (gfx:set-uniform 'camera (gfx:camera-position (gfx:camera view)))
+    (gfx:set-uniform 'lookat (gfx:camera-target (gfx:camera view)))
+    (gfx:set-uniform 'projection-matrix (gfx:projection-matrix view))
+    (gfx:set-uniform 'view-matrix (gfx:view-matrix view))
+    (gfx:set-uniform 'imouse (imouse (renderer *visual-canvas*)))
+    (gl:draw-arrays :triangles 0 6)))
+
+(defun draw-rasterize-shader-surface (view canvas)
+  (gfx:with-shader (view 'gfx::draw-fbo gfx::*fbo-stream*)
+    (gl:active-texture :texture0)
+    (gl:bind-texture :texture-rectangle (gfx:output-texture (gfx::fbo canvas)))
+    (gfx:set-uniform 'ichannel0 0)
+    (gl:draw-arrays :triangles 0 (gfx:gpu-stream-length gfx::*fbo-stream*))))
 
 (defmethod gfx:draw ((view shader-surface))
   (let* ((w (gfx:width view))
@@ -683,34 +721,28 @@
 	  for device in (texture-devices view)
 	  do (gl:active-texture unit)
 	     (update-texture-device view (car device) (cdr device)))
-    (gl:enable :depth-test)
-    (gfx:with-shader (view (shader view) (gpu-stream (renderer *visual-canvas*)))
-      #.`(progn ,@(loop for i from 0 below 8
-			collect `(gfx:set-uniform ',(intern (format nil "ICHANNEL~d" i)) ,i))
-		,@(loop for i from 0 below *num-ivolume*
-			collect `(gfx:set-uniform ',(intern (format nil "IVOLUME~d" i))
-						  (funcall *visual-volume-function* ,i)))
-		,@(loop for i from 0 below *num-icontrol*
-			collect `(gfx:set-uniform ',(intern (format nil "ICONTROL~d" i))
-						  (funcall *visual-control-function* ,i))))
-      (gfx:set-uniform 'iglobal-time time)
-      (gfx:set-uniform 'itime time)
-      (gfx:set-uniform 'iresolution (list w h))
-      (gfx:set-uniform 'camera (gfx:camera-position (gfx:camera view)))
-      (gfx:set-uniform 'lookat (gfx:camera-target (gfx:camera view)))
-      (gfx:set-uniform 'projection-matrix (gfx:projection-matrix view))
-      (gfx:set-uniform 'view-matrix (gfx:view-matrix view))
-      (gfx:set-uniform 'imouse (imouse (renderer *visual-canvas*)))
-      (gl:draw-arrays :triangles 0 6))
-    (gl:disable :depth-test)
     (when (gl-canvas view)
-      (setf (gfx:width (gl-canvas view)) w (gfx:height (gl-canvas view)) h)
-      (setf (gfx:projection-matrix (gl-canvas view)) (gfx:projection-matrix view)
-	    (gfx:view-matrix (gl-canvas view)) (gfx:view-matrix view))
-      (when (resize-p view)
-	(gfx:reshape (gl-canvas view))
-	(setf (resize-p view) nil))
-      (gfx:draw (gl-canvas view)))
+      (gfx:with-fbo ((gfx::fbo (gl-canvas view)))
+	(setf (gfx:width (gl-canvas view)) w (gfx:height (gl-canvas view)) h)
+	(setf (gfx:projection-matrix (gl-canvas view)) (gfx:projection-matrix view)
+	      (gfx:view-matrix (gl-canvas view)) (gfx:view-matrix view))
+	(when (resize-p view)
+	  (gfx:reshape (gl-canvas view))
+	  (setf (resize-p view) nil))
+	(gfx:draw (gl-canvas view))))
+    (gl:disable :depth-test)
+    (gl:disable :blend)
+    (if (post-raymarch view)
+	(when (gl-canvas view)
+	  (draw-rasterize-shader-surface view (gl-canvas view)))
+      (draw-raymarching-shader-surface view time w h))
+    (gl:enable :depth-test)
+    (gl:enable :blend)
+    (gl:blend-func :src-alpha :one-minus-src-alpha)
+    (if (post-raymarch view)
+	(draw-raymarching-shader-surface view time w h)
+      (when (gl-canvas view)
+	(draw-rasterize-shader-surface view (gl-canvas view))))
     (when (texture-cache-flush view)
       (core-video:texture-cache-flush (texture-cache view) 0)
       (setf (texture-cache-flush view) nil))))
@@ -756,14 +788,15 @@
 				 :shader (tex :src)
 				 :texture-devices (tex :textures)
 				 :gl-canvas (tex :gl-canvas)
+				 :post-raymarch (tex :post-raymarch)
+				 :format format
 				 :user-fn (tex :user-fn)))
 	 (output (tex :output)))
     (resize-framebuffer renderer width height)
     (when output
       (setf (gethash output *io-surface-table*) (iosurface renderer)))
     (with-cgl-context ((cgl-context renderer))
-      (let* ((fbo (if (tex :multisample) (fbo renderer)
-		    (gfx::output-fbo (fbo renderer)))))
+      (let* ((fbo (fbo renderer)))
 	(gfx:with-fbo (fbo)
 	  (gfx:init surface))))
     (gl:bind-texture target texture)
@@ -780,7 +813,6 @@
 	  :tex-id texture
 	  :target target
 	  :surface surface
-	  :multisample (tex :multisample)
 	  :format format
 	  :fixed-size fixed-size
 	  :output output
@@ -811,11 +843,9 @@
       (setf (resize-p surface) t))
     (gl:bind-texture (tex :target) (tex :tex-id))
     (with-cgl-context ((cgl-context renderer))
-      (let* ((fbo (if (tex :multisample) (fbo renderer)
-		    (gfx::output-fbo (fbo renderer)))))
+      (let* ((fbo (fbo renderer)))
 	(gfx:with-fbo (fbo)
-	  (gfx:draw surface))
-	(gfx:with-fbo ((gfx::output-fbo (fbo renderer)))
+	  (gfx:draw surface)
 	  (loop for unit in '(:texture0 :texture1 :texture2 :texture3
 			      :texture4 :texture5 :texture6 :texture7)
 		for device in (texture-devices surface)
@@ -833,8 +863,7 @@
 	 (renderer (renderer surface))
 	 (output (tex :output)))
     (with-cgl-context ((cgl-context renderer))
-      (let* ((fbo (if (tex :multisample) (fbo renderer)
-		    (gfx::output-fbo (fbo renderer)))))
+      (let* ((fbo (fbo renderer)))
 	(gfx:with-fbo (fbo)
 	  (gfx:release surface))))
     (when output
@@ -864,8 +893,7 @@
 	 (src (tex :src)))
     (resize-framebuffer renderer width height)
     (with-cgl-context ((cgl-context renderer))
-      (let* ((fbo (if (tex :multisample) (fbo renderer)
-		    (gfx::output-fbo (fbo renderer)))))
+      (let* ((fbo (fbo renderer)))
 	(gfx:with-fbo (fbo)
 	  (setf (texture-cache surface) (core-video:make-texture-cache (cgl-context surface) (pixel-format surface)))
 	  (setf src (init-texture-device surface (car src) (cdr src))))))
@@ -887,7 +915,6 @@
 	  :renderer renderer
 	  :surface surface
 	  :src src
-	  :multisample (tex :multisample)
 	  :info (tex :info))))
 
 
@@ -911,8 +938,7 @@
       (gl:bind-texture (tex :target) 0))
     (gl:bind-texture (tex :target) (tex :tex-id))
     (with-cgl-context ((cgl-context renderer))
-      (let* ((fbo (if (tex :multisample) (fbo renderer)
-		    (gfx::output-fbo (fbo renderer)))))
+      (let* ((fbo (fbo renderer)))
 	(gfx:with-fbo (fbo)
 	  (gl:active-texture :texture0)
 	  (update-texture-device surface (car src) (cdr src))
@@ -944,8 +970,7 @@
 	 (surface (tex :surface))
 	 (src (tex :src)))
     (with-cgl-context ((cgl-context renderer))
-      (let* ((fbo (if (tex :multisample) (fbo renderer)
-		    (gfx::output-fbo (fbo renderer)))))
+      (let* ((fbo (fbo renderer)))
 	(gfx:with-fbo (fbo)
 	  (core-video:release-texture-cache (texture-cache surface))
 	  (release-texture-device surface (car src) (cdr src)))))

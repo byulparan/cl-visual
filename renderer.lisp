@@ -22,6 +22,10 @@
    (fbo 
     :initform nil
     :accessor fbo)
+   (multisample
+    :initarg :multisample
+    :initform nil
+    :reader multisample)
    (width
     :initarg :width
     :accessor width)
@@ -53,6 +57,7 @@
 				     (iosurface renderer) 0))
       (gl:bind-texture :texture-rectangle 0)
       (if (not (fbo renderer)) (setf (fbo renderer) (gfx:make-fbo width height
+								  :multisample (multisample renderer)
 								  :texture (texture renderer)
 								  :target :texture-rectangle
 								  :format gl-format))
@@ -214,6 +219,7 @@
       (setf (gl-canvas renderer) (make-instance canvas :camera (camera renderer)
 						:width (width renderer) :height (height renderer)
 						:fbo (gfx:make-fbo (width renderer) (height renderer)
+								   :target :texture-rectangle
 								   :multisample t :use-depth-texture-p t)))
       (gfx:init (gl-canvas renderer)))))
 
@@ -231,7 +237,7 @@
 						(funcall *visual-control-function* ,i))))
     (when-let ((canvas (gl-canvas renderer)))
       (gl:active-texture :texture8)
-      (gl:bind-texture :texture-2d (gfx:depth-texture (gfx::fbo canvas)))
+      (gl:bind-texture :texture-rectangle (gfx:depth-texture (gfx::fbo canvas)))
       (gfx:set-uniform 'depth-texture 8))
     (gfx:set-uniform 'iglobal-time time)
     (gfx:set-uniform 'itime time)
@@ -246,7 +252,7 @@
 (defun draw-rasterize (renderer canvas)
   (gfx:with-shader (renderer 'gfx::draw-fbo gfx::*fbo-stream*)
     (gl:active-texture :texture0)
-    (gl:bind-texture :texture-2d (gfx:output-texture (gfx::fbo canvas)))
+    (gl:bind-texture :texture-rectangle (gfx:output-texture (gfx::fbo canvas)))
     (gfx:set-uniform 'ichannel0 0)
     (gl:draw-arrays :triangles 0 (gfx:gpu-stream-length gfx::*fbo-stream*))))
 
@@ -292,8 +298,7 @@
 	      for device in (texture-devices renderer)
 	      do (gl:active-texture unit)
 		 (update-texture-device renderer (car device) (cdr device)))
-	(draw-shader renderer w h update-size))
-      (gfx:with-fbo ((fbo renderer))
+	(draw-shader renderer w h update-size)
 	(loop for unit in '(:texture0 :texture1 :texture2 :texture3
 			    :texture4 :texture5 :texture6 :texture7)
 	      for device in (texture-devices renderer)
