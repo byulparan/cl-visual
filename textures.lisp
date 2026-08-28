@@ -722,6 +722,13 @@
 	  do (gl:active-texture unit)
 	     (update-texture-device view (car device) (cdr device)))
     (when (gl-canvas view)
+      (when (or (/= w (gfx:width (gfx::fbo (gl-canvas view))))
+		(/= h (gfx:height (gfx::fbo (gl-canvas view)))))
+	;; replace fbo
+	(gfx:release-fbo (gfx::fbo (gl-canvas view)))
+	(setf (gfx::fbo (gl-canvas view)) (gfx:make-fbo w h 
+							:multisample t :use-depth-texture-p t
+							:target :texture-rectangle)))
       (gfx:with-fbo ((gfx::fbo (gl-canvas view)))
 	(setf (gfx:width (gl-canvas view)) w (gfx:height (gl-canvas view)) h)
 	(setf (gfx:projection-matrix (gl-canvas view)) (gfx:projection-matrix view)

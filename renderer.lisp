@@ -205,6 +205,9 @@
 	(force-output)
 	(gfx::compile-pipeline pipeline)))))
 
+
+
+
 (defun reinit-visual-renderer (renderer options &optional scene-size)
   (with-cgl-context ((cgl-context renderer))
     (when scene-size
@@ -219,8 +222,8 @@
       (setf (gl-canvas renderer) (make-instance canvas :camera (camera renderer)
 						:width (width renderer) :height (height renderer)
 						:fbo (gfx:make-fbo (width renderer) (height renderer)
-								   :target :texture-rectangle
-								   :multisample t :use-depth-texture-p t)))
+								   :multisample t :use-depth-texture-p t
+								   :target :texture-rectangle)))
       (gfx:init (gl-canvas renderer)))))
 
 
@@ -260,6 +263,13 @@
 (defun draw-shader (renderer w h update-size)
   (let* ((time (render-time renderer)))
     (when-let ((canvas (gl-canvas renderer)))
+      (when (or (/= w (gfx:width (gfx::fbo canvas)))
+		(/= h (gfx:height (gfx::fbo canvas))))
+	;; replace fbo
+	(gfx:release-fbo (gfx::fbo canvas))
+	(setf (gfx::fbo canvas) (gfx:make-fbo w h 
+					      :multisample t :use-depth-texture-p t
+					      :target :texture-rectangle)))
       (gfx:with-fbo ((gfx::fbo canvas))
 	(setf (gfx:width canvas) w (gfx:height canvas) h)
 	(setf (gfx:projection-matrix canvas) (projection-matrix renderer)
