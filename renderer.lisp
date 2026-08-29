@@ -289,7 +289,9 @@
     (if (post-raymarch renderer)
 	(draw-raymarching renderer time w h)
       (when-let ((canvas (gl-canvas renderer)))
-	(draw-rasterize renderer canvas)))))
+	(draw-rasterize renderer canvas)))
+    (gl:disable :depth-test)
+    (gl:disable :blend)))
 
 
 (defun render (renderer update-size)

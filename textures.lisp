@@ -752,7 +752,9 @@
 	(draw-rasterize-shader-surface view (gl-canvas view))))
     (when (texture-cache-flush view)
       (core-video:texture-cache-flush (texture-cache view) 0)
-      (setf (texture-cache-flush view) nil))))
+      (setf (texture-cache-flush view) nil))
+    (gl:disable :depth-test)
+    (gl:disable :blend)))
 
 (defmethod gfx:release ((view shader-surface))
   (when (gl-canvas view)
