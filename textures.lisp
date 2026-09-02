@@ -651,6 +651,7 @@
 	      for target = (ecase (getf (cdr texture-device) :target)
 			     (:texture-2d :sampler-2d)
 			     (:texture-rectangle :sampler-2d-rect)
+			     (:texture-cube-map :sampler-cube)
 			     (:texture-buffer :sampler-buffer))
 	      for uniform in (gfx::%pipeline-uniforms pipeline)
 	      when texture-device
