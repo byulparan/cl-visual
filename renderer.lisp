@@ -239,9 +239,10 @@
 		      collect `(gfx:set-uniform ',(intern (format nil "ICONTROL~d" i))
 						(funcall *visual-control-function* ,i))))
     (when-let ((canvas (gl-canvas renderer)))
-      (gl:active-texture :texture8)
+      ;; depth texture 는 texture9 로 고정
+      (gl:active-texture :texture9)
       (gl:bind-texture :texture-rectangle (gfx:depth-texture (gfx::fbo canvas)))
-      (gfx:set-uniform 'depth-texture 8))
+      (gfx:set-uniform 'depth-texture 9))
     (gfx:set-uniform 'iglobal-time time)
     (gfx:set-uniform 'itime time)
     (gfx:set-uniform 'iresolution (list w h))
@@ -254,9 +255,10 @@
 
 (defun draw-rasterize (renderer canvas)
   (gfx:with-shader (renderer 'gfx::draw-fbo gfx::*fbo-stream*)
-    (gl:active-texture :texture0)
+    ;; gl-canvas 의 FBO 는 texture8 에 고정하여 바인딩.
+    (gl:active-texture :texture8)
     (gl:bind-texture :texture-rectangle (gfx:output-texture (gfx::fbo canvas)))
-    (gfx:set-uniform 'ichannel0 0)
+    (gfx:set-uniform 'ichannel0 8)
     (gl:draw-arrays :triangles 0 (gfx:gpu-stream-length gfx::*fbo-stream*))))
 
 

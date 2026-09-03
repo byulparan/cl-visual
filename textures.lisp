@@ -686,9 +686,9 @@
 		      collect `(gfx:set-uniform ',(intern (format nil "ICONTROL~d" i))
 						(funcall *visual-control-function* ,i))))
     (when (gl-canvas view)
-      (gl:active-texture :texture8)
+      (gl:active-texture :texture9)
       (gl:bind-texture :texture-rectangle (gfx:depth-texture (gfx::fbo (gl-canvas view))))
-      (gfx:set-uniform 'depth-texture 8))
+      (gfx:set-uniform 'depth-texture 9))
     (gfx:set-uniform 'iglobal-time time)
     (gfx:set-uniform 'itime time)
     (gfx:set-uniform 'iresolution (list w h))
@@ -701,9 +701,9 @@
 
 (defun draw-rasterize-shader-surface (view canvas)
   (gfx:with-shader (view 'gfx::draw-fbo gfx::*fbo-stream*)
-    (gl:active-texture :texture0)
+    (gl:active-texture :texture8)
     (gl:bind-texture :texture-rectangle (gfx:output-texture (gfx::fbo canvas)))
-    (gfx:set-uniform 'ichannel0 0)
+    (gfx:set-uniform 'ichannel0 8)
     (gl:draw-arrays :triangles 0 (gfx:gpu-stream-length gfx::*fbo-stream*))))
 
 (defmethod gfx:draw ((view shader-surface))
