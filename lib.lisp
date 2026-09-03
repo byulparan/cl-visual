@@ -67,8 +67,12 @@
 	    (focal-length (y (aref projection-matrix 1)))
 	    (ray-dir-view (normalize (v! (x ,uv) (y ,uv) (- focal-length))))
 	    (,rd (normalize (xyz (* inv-view (v! ray-dir-view 0.0)))))
+	    ;; --- Projection Matrix에서 Far 값 추출 ---
+            (p22 (z (aref projection-matrix 2))) ;; M[2][2]
+            (p23 (w (aref projection-matrix 2))) ;; M[2][3]
+            (far-plane (/ p23 (* 2.0 (+ p22 1.0))))
 	    (,scene-depth (if (>= raw-depth 0.9999)
-			      1000.0
+			      far-plane
 			    (/ eye-z (- (z ray-dir-view))))))
        ,@body)))
 
