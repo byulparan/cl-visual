@@ -57,9 +57,14 @@
 				     (iosurface renderer) 0))
       (gl:bind-texture :texture-rectangle 0)
       (if (not (fbo renderer)) (setf (fbo renderer) (gfx:make-fbo width height
+								  ;; renderer 와 shader-surface 는 multisample 일 필요가 없음. 내부에 만들어질 gl-canvas 가 자체 FBO 가 있고 그것을 멀티샘플로 사용하기 때문.
+								  ;; 다만 textures 의 gl-canvas 는 renderer 의 FBO 를 직접 사용하기 때문에 그때는 multisample 을 사용해야 함.
 								  :multisample (multisample renderer)
 								  :texture (texture renderer)
+								  ;; multisample 일때 anti-aliasing 의 품질이 (기분 탓인지는 모르지만) texture-rectangle 이 texture-2d 보다 좋다고 느껴짐.
 								  :target :texture-rectangle
+								  ;; 메인 renderer 는 고정으로 rgba8 를 쓰면 되지만 gl-canvas 는 색상 값의 범위를 0.0~1.0 이상으로 써야 하는 상황이 있기 때문에
+								  ;; rgba8 과 rgba32f(픽셀 당 메모리를 4배 더 사용함) 를 선택 할 수 있도록 함.
 								  :format gl-format))
 	(gfx:reinit-fbo (fbo renderer) width height)))))
 
