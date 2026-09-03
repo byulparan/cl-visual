@@ -318,14 +318,15 @@
 						     (lambda () (- (gfx:get-internal-seconds) cur-time))))
 				      size (scene-ratio 1) user-fn close-fn (use-mouse t)
 				      syphon output-filter retina
-				      (info t) gl-canvas post-raymarch)
+				      (info t) gl-canvas post-raymarch blend-func)
   (with-gensyms (window-name message)
     (once-only (size)
       `(let* ((,window-name (format nil "~a" ',shader))
 	      (,message (list :shader ',shader
 			      :textures ,textures
 			      :scene-ratio ,scene-ratio :user-fn ,user-fn :syphon ,syphon :output-filter ,output-filter
-			      :retina ,retina :info ,info :gl-canvas ,gl-canvas :post-raymarch ,post-raymarch)))
+			      :retina ,retina :info ,info :gl-canvas ,gl-canvas :post-raymarch ,post-raymarch
+			      :blend-func ,(if blend-func blend-func '(list :src-alpha :one-minus-src-alpha)))))
 	 (assert (gethash ',shader gfx::*all-pipeline-table*) nil "can't find \"~a\" shader" ',shader)
 	 (if *visual-canvas* (progn (#+sbcl send-message
 				     #-sbcl mailbox-send-message

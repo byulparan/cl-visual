@@ -124,6 +124,9 @@
    (gl-canvas
     :initform nil
     :accessor gl-canvas)
+   (blend-func
+    :initform '(:src-alpha :one-minus-src-alpha)
+    :accessor blend-func)
    (post-raymarch
     :initform nil
     :accessor post-raymarch)
@@ -223,6 +226,7 @@
       (gfx:release canvas))
     (setf (gl-canvas renderer) nil)
     (setf (post-raymarch renderer) (getf options :post-raymarch))
+    (setf (blend-func renderer) (getf options :blend-func))
     (when-let ((canvas (getf options :gl-canvas)))
       (setf (gl-canvas renderer) (make-instance canvas :camera (camera renderer)
 						:width (width renderer) :height (height renderer)
@@ -291,8 +295,9 @@
 	  (draw-rasterize renderer canvas))
       (draw-raymarching renderer time w h))
     (gl:enable :depth-test)
-    (gl:enable :blend)
-    (gl:blend-func :src-alpha :one-minus-src-alpha)
+    (when-let ((blend-func (blend-func renderer)))
+      (gl:enable :blend)
+      (apply #'gl:blend-func blend-func))
     (if (post-raymarch renderer)
 	(draw-raymarching renderer time w h)
       (when-let ((canvas (gl-canvas renderer)))

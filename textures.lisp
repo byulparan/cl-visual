@@ -632,6 +632,7 @@
    (gl-canvas :initarg :gl-canvas :accessor gl-canvas)
    (format :initarg :format :initform :rgba8 :reader gl-format)
    (post-raymarch :initarg :post-raymarch :reader post-raymarch)
+   (blend-func :initarg :blend-func :reader blend-func)
    (user-fn :initarg :user-fn :reader user-fn)
    (resize-p :initform nil :accessor resize-p)
    (texture-cache
@@ -745,8 +746,9 @@
 	  (draw-rasterize-shader-surface view (gl-canvas view)))
       (draw-raymarching-shader-surface view time w h))
     (gl:enable :depth-test)
-    (gl:enable :blend)
-    (gl:blend-func :src-alpha :one-minus-src-alpha)
+    (when (blend-func view)
+      (gl:enable :blend)
+      (apply #'gl:blend-func (blend-func view)))
     (if (post-raymarch view)
 	(draw-raymarching-shader-surface view time w h)
       (when (gl-canvas view)
@@ -799,6 +801,7 @@
 				 :texture-devices (tex :textures)
 				 :gl-canvas (tex :gl-canvas)
 				 :post-raymarch (tex :post-raymarch)
+				 :blend-func (if (tex :blend-func) (tex :blend-func) '(:src-alpha :one-minus-src-alpha))
 				 :format format
 				 :user-fn (tex :user-fn)))
 	 (output (tex :output)))
