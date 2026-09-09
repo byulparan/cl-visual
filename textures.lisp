@@ -337,9 +337,7 @@
     (cond ((stringp src) (progn
 			   (setf capture (ns:new "ScreenCapturer"))
 			   (setf release-p t)
-			   (ns:queue-for-event-loop
-			    (lambda ()
-			      (ns:objc capture "startCaptureWindow:" :pointer (ns:make-ns-string src))))))
+			   (ns:objc capture "startCaptureWindow:" :pointer (ns:make-ns-string src))))
 	  ((integerp src) (progn
 			    (setf capture (ns:new "ScreenCapturer"))
 			    (setf release-p t)
